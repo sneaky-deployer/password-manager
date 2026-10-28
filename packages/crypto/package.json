@@ -1,0 +1,20 @@
+{
+  "name": "@pm/crypto",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@scure/bip39": "^2.4.0",
+    "libsodium-wrappers-sumo": "^0.8.4"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
+  }
+}

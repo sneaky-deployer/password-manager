@@ -1,0 +1,9 @@
+# Security headers for static assets (PLAN.md section 8). The Worker sets the same values on
+# /api/* responses; a test in src/security-headers.test.ts fails if the two drift apart.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(self), clipboard-write=(self), geolocation=(), microphone=()
+  Cross-Origin-Opener-Policy: same-origin

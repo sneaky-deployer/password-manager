@@ -1,0 +1,8 @@
+# Copy to .dev.vars (gitignored) for local development. Throwaway values only.
+ENVIRONMENT=development
+# The Vite dev server (bun run dev) is the browser-facing origin and proxies /api to wrangler.
+APP_ORIGIN=http://localhost:5173
+AUTH_PEPPER=dev-only-auth-pepper-not-a-secret
+FAKE_SALT_KEY=dev-only-fake-salt-key-not-a-secret
+SERVER_ENC_KEY=dev-only-server-enc-key-not-a-secret
+RESEND_API_KEY=re_dev_dummy

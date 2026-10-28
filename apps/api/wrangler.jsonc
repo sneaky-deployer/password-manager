@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "password-manager",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // account_id is not set here: CI passes CLOUDFLARE_ACCOUNT_ID (a GitHub Actions variable).
+  "workers_dev": false,
+  "routes": [{ "pattern": "password-manager.azzaz.dev", "custom_domain": true }],
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "password-manager",
+      // TODO(owner): replace this placeholder with the real D1 database ID (not a secret).
+      // deploy.yml refuses to deploy while the placeholder is still here.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": { "crons": ["23 2 * * *"] },
+  // Non-secret vars live here only (dashboard-set vars are overwritten on deploy).
+  // Secrets (AUTH_PEPPER, FAKE_SALT_KEY, SERVER_ENC_KEY, RESEND_API_KEY) are set in the
+  // dashboard or in .dev.vars locally.
+  "vars": {
+    "APP_ORIGIN": "https://password-manager.azzaz.dev",
+    "ENVIRONMENT": "production",
+    "ADMIN_EMAIL": "admin@example.com",
+    "INVITE_TTL_HOURS": "72",
+    "KDF_DEFAULT_MEM": "67108864",
+    "KDF_DEFAULT_OPS": "3",
+    "EMAIL_FROM": "Password Manager <no-reply@password-manager.azzaz.dev>"
+  }
+}

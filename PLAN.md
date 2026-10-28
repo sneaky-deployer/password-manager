@@ -2,7 +2,7 @@
 
 This document is the single source of truth for the project. It is written so that someone (a person or a new AI session) with **no prior context** can read it top to bottom and start working. If you change a decision, update this file in the same commit.
 
-**Status:** planning complete, no code yet. Owner decisions on registration, domain, email and CI recorded (section 20). Next step: **Phase 0** (see [Build phases](#16-build-phases)).
+**Status:** Phase 0 scaffold done (first deploy waits on owner setup, section 18). Next step: **Phase 1** (see [Build phases](#16-build-phases)).
 
 ---
 
@@ -99,7 +99,7 @@ Password health (weak/reused), breach check (Have I Been Pwned k-anonymity API),
 | Backups | GitHub Actions scheduled job: `wrangler d1 export` → encrypt with `age` → upload to **R2** | Free (Actions + R2 free tier); off-platform copy beyond D1's 7-day restore window | Upstash QStash (would still need somewhere to run `pg_dump`/export) |
 | Scheduled jobs | Workers **Cron Triggers** in the same Worker | Free; used for purging trash, expired sessions and codes | External cron services |
 | Lint/format | **Biome** | One fast tool for both | ESLint + Prettier |
-| Tests | **Vitest** (+ `@cloudflare/vitest-pool-workers` for the API), **Playwright** for E2E | Vitest is what Cloudflare's Workers test pool uses; one test runner everywhere | `bun test` (doesn't run inside workerd) |
+| Tests | **Vitest** (+ `@cloudflare/vitest-plugin` for the API), **Playwright** for E2E | Vitest is what Cloudflare's Workers test plugin uses (`@cloudflare/vitest-plugin`, the renamed successor of `vitest-pool-workers`); one test runner everywhere | `bun test` (doesn't run inside workerd) |
 
 ---
 
@@ -175,7 +175,7 @@ Use the latest stable versions at the time of scaffolding and pin them in `bun.l
 | Frontend crypto | `libsodium-wrappers-sumo`, `@scure/bip39`, `otpauth` |
 | Frontend extras | `@simplewebauthn/browser`, `jsqr` (QR decode fallback when `BarcodeDetector` is unavailable), `@zxcvbn-ts/core` + `@zxcvbn-ts/language-common` (strength estimate of user-typed passwords) |
 | Lint/format | `@biomejs/biome` |
-| Tests | `vitest`, `@cloudflare/vitest-pool-workers`, `@playwright/test` |
+| Tests | `vitest`, `@cloudflare/vitest-plugin`, `@playwright/test` |
 
 Rules: no analytics, no third-party scripts, no CDNs at runtime. Everything is bundled and served from our origin.
 
@@ -771,17 +771,17 @@ Favicons: off by default (fetching `example.com/favicon.ico` would leak which si
 Each phase ends with passing CI and a deployable app. Tick boxes as work lands (in the same commit).
 
 ### Phase 0: Scaffolding
-- [ ] Bun workspace root (`package.json` workspaces: `apps/*`, `packages/*`), `tsconfig.base.json` (strict), Biome config
-- [ ] `apps/api`: Hono app with `GET /api/health`, `wrangler.jsonc` (D1 binding `DB`, assets from `../web/dist`, `run_worker_first: ["/api/*"]`, SPA fallback `not_found_handling: "single-page-application"`, cron trigger), security headers middleware
-- [ ] `apps/web`: Vite + React + Tailwind + TanStack Router/Query, calls `/api/health`
-- [ ] `packages/shared`, `packages/crypto`, `packages/generator`, `packages/otp` with empty exports and a test each
-- [ ] Drizzle config for D1, first empty migration, local D1 via `wrangler dev`
-- [ ] Root scripts: `dev`, `build`, `test`, `lint`, `typecheck`, `db:generate`, `db:migrate:local`, `db:migrate:remote`, `deploy`
-- [ ] `.gitignore` (`node_modules`, `dist`, `.wrangler`, `.dev.vars`, `*.sqlite`, backups), `.dev.vars.example`
-- [ ] `ci.yml`: install, lint, typecheck, test, build
-- [ ] README quickstart
-- [ ] `deploy.yml`: on push to `master` → CI → apply D1 migrations → `wrangler deploy` (token in GitHub secrets)
-- [ ] First deploy to `https://password-manager.azzaz.dev` (Custom Domain in `wrangler.jsonc`), `/api/health` returns OK
+- [x] Bun workspace root (`package.json` workspaces: `apps/*`, `packages/*`), `tsconfig.base.json` (strict), Biome config
+- [x] `apps/api`: Hono app with `GET /api/health`, `wrangler.jsonc` (D1 binding `DB`, assets from `../web/dist`, `run_worker_first: ["/api/*"]`, SPA fallback `not_found_handling: "single-page-application"`, cron trigger), security headers middleware
+- [x] `apps/web`: Vite + React + Tailwind + TanStack Router/Query, calls `/api/health`
+- [x] `packages/shared`, `packages/crypto`, `packages/generator`, `packages/otp` with empty exports and a test each
+- [x] Drizzle config for D1, local D1 via `wrangler dev` (no empty migration: the first migration comes with the Phase 2 schema)
+- [x] Root scripts: `dev`, `build`, `test`, `lint`, `typecheck`, `db:generate`, `db:migrate:local`, `db:migrate:remote`, `deploy`
+- [x] `.gitignore` (`node_modules`, `dist`, `.wrangler`, `.dev.vars`, `*.sqlite`, backups), `.dev.vars.example`
+- [x] `ci.yml`: install, lint, typecheck, test, build
+- [x] README quickstart
+- [x] `deploy.yml`: on push to `master` → CI → apply D1 migrations → `wrangler deploy` (token in GitHub secrets)
+- [ ] First deploy to `https://password-manager.azzaz.dev` (Custom Domain in `wrangler.jsonc`), `/api/health` returns OK. **Blocked on owner setup (section 18).** `deploy.yml` skips migrate/deploy with a notice until `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and a real `database_id` exist
 
 ### Phase 1: Core libraries (no UI, fully tested)
 - [ ] `packages/crypto`: sodium init, Argon2id derive, subkeys, envelope encrypt/decrypt with AAD, sealed boxes, recovery phrase (BIP39) generate/parse, key bundle builders for account creation/password change/recovery, fixed test vectors
@@ -858,7 +858,7 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 | `packages/crypto` | Vitest | Round-trips, AAD mismatch fails, wrong key fails, fixed vectors (format stability), recovery phrase checksum, full account creation → password change → recovery simulation without a server |
 | `packages/generator` | Vitest | Length/sets honoured, at-least-one-per-set, no ambiguous chars when excluded, chi-square-style distribution sanity check, entropy maths |
 | `packages/otp` | Vitest | RFC 6238 + RFC 4226 vectors, URI parsing edge cases, countdown maths at period boundaries |
-| `apps/api` | Vitest + `@cloudflare/vitest-pool-workers` (real workerd + local D1) | Every route: auth, role enforcement (viewer can't write, removed member gets 403), revision conflicts, rate limits, session invalidation via `security_stamp`, fake-salt prelogin |
+| `apps/api` | Vitest + `@cloudflare/vitest-plugin` (real workerd + local D1) | Every route: auth, role enforcement (viewer can't write, removed member gets 403), revision conflicts, rate limits, session invalidation via `security_stamp`, fake-salt prelogin |
 | `apps/web` | Vitest + Testing Library | Generator UI, TOTP widget timing (fake timers), lock/unlock |
 | End to end | Playwright | The Phase 6 journey across two browser contexts (two users), starting from admin bootstrap and an invite |
 
@@ -895,7 +895,7 @@ Production URL: **`https://password-manager.azzaz.dev`**. One Worker named `pass
 }
 ```
 
-The security headers from [section 8](#8-security-model) must also apply to static assets: either set `run_worker_first: true` for HTML navigations only, or ship an `_headers` file in `apps/web/public` with the same values. Decide in Phase 0 and record it here.
+Security headers on static assets come from `apps/web/public/_headers` (rule `/*`); API responses get them from middleware. The single source of truth is `SECURITY_HEADERS` in `packages/shared`, and a test fails if `_headers` drifts from it. Because `style-src 'self'` forbids inline `style=""` attributes, use Tailwind classes only.
 
 ### One-time owner setup
 

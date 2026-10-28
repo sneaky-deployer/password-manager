@@ -1,0 +1,32 @@
+{
+  "name": "@pm/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "mkdir -p ../web/dist && wrangler dev",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply password-manager --local",
+    "db:migrate:remote": "wrangler d1 migrations apply password-manager --remote",
+    "deploy": "wrangler d1 migrations apply password-manager --remote && wrangler deploy"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
+    "@pm/shared": "workspace:*",
+    "@simplewebauthn/server": "^14.0.3",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.14",
+    "otpauth": "^9.5.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.9",
+    "@cloudflare/workers-types": "^5.20261028.1",
+    "drizzle-kit": "^0.31.11",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.154.0"
+  }
+}
