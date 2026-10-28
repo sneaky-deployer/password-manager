@@ -857,7 +857,7 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [x] Delete account (self and by admin)
 
 ### Phase 6: Production hardening
-- [ ] `backup.yml`: daily `wrangler d1 export --remote` → `age` encrypt → R2, 30-day lifecycle rule; documented restore drill (`scripts/restore.md`) and one test restore into a scratch D1
+- [x] `backup.yml`: daily `wrangler d1 export --remote` → `age` encrypt → R2, 30-day lifecycle rule; documented restore drill (`scripts/restore.md`) and one test restore into a scratch D1 (the drill itself waits on owner setup)
 - [ ] CSP and headers verified on both assets and API; `securityheaders.com`-style check
 - [ ] Playwright E2E for admin setup → invite → accept → add item with TOTP → share → recipient sees it → revoke → change password → recover with kit
 - [ ] Import (CSV formats) and export (encrypted JSON, CSV)

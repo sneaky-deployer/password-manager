@@ -1,0 +1,123 @@
+name: Backup
+
+# Daily off-platform backup: export D1, encrypt with age, store in R2 (pm-backups, 30-day lifecycle rule).
+# A failure turns the run red, which is how the owner notices. Restore steps: scripts/restore.md.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Secrets cannot be used in `if:` directly; expose only whether they are set.
+      HAS_BACKUP_TOKEN: ${{ secrets.CLOUDFLARE_BACKUP_API_TOKEN != '' }}
+      HAS_CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID != '' }}
+      HAS_AGE_KEY: ${{ vars.BACKUP_AGE_PUBLIC_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check backup prerequisites
+        id: gate
+        run: |
+          backup=true
+          if [ "$HAS_BACKUP_TOKEN" != "true" ]; then
+            echo "::notice::Skipping backup: the CLOUDFLARE_BACKUP_API_TOKEN secret is not configured."
+            backup=false
+          fi
+          if [ "$HAS_CF_ACCOUNT_ID" != "true" ]; then
+            echo "::notice::Skipping backup: the CLOUDFLARE_ACCOUNT_ID variable is not configured."
+            backup=false
+          fi
+          if [ "$HAS_AGE_KEY" != "true" ]; then
+            echo "::notice::Skipping backup: the BACKUP_AGE_PUBLIC_KEY variable is not configured."
+            backup=false
+          fi
+          if grep -q '00000000-0000-0000-0000-000000000000' apps/api/wrangler.jsonc; then
+            echo "::notice::Skipping backup: apps/api/wrangler.jsonc still has the placeholder D1 database_id."
+            backup=false
+          fi
+          echo "backup=$backup" >> "$GITHUB_OUTPUT"
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.gate.outputs.backup == 'true'
+        with:
+          bun-version: 1.4.4
+
+      - uses: actions/cache@v4
+        if: steps.gate.outputs.backup == 'true'
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.gate.outputs.backup == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Install age
+        if: steps.gate.outputs.backup == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age
+          age --version
+
+      # Export, encrypt and upload in ONE step so the plaintext dump is always removed
+      # (trap runs on success and on failure). The dump lives in RUNNER_TEMP, is never
+      # printed, never uploaded as an artifact, and only the .age file leaves the runner.
+      - name: Export, encrypt and upload
+        if: steps.gate.outputs.backup == 'true'
+        working-directory: apps/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BACKUP_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          BACKUP_AGE_PUBLIC_KEY: ${{ vars.BACKUP_AGE_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          work="$(mktemp -d "$RUNNER_TEMP/pm-backup.XXXXXX")"
+          dump="$work/dump.sql"
+          encrypted="$work/backup.sql.age"
+          object="$(date -u +%F).sql.age"
+
+          cleanup() {
+            shred -u "$dump" 2>/dev/null || rm -f "$dump"
+            rm -rf "$work"
+          }
+          trap cleanup EXIT
+
+          bunx wrangler d1 export password-manager --remote --output="$dump" --skip-confirmation
+
+          # Fail loudly on an empty or schema-less export rather than storing a useless backup.
+          test -s "$dump"
+          grep -q 'CREATE TABLE' "$dump"
+          grep -q 'users' "$dump"
+
+          age -r "$BACKUP_AGE_PUBLIC_KEY" -o "$encrypted" "$dump"
+
+          # Plaintext is no longer needed: remove it before any network upload.
+          shred -u "$dump" || rm -f "$dump"
+          test ! -e "$dump"
+          test -s "$encrypted"
+
+          bunx wrangler r2 object put "pm-backups/$object" --file="$encrypted" --remote
+
+          size="$(stat -c %s "$encrypted")"
+          echo "Uploaded pm-backups/$object ($size bytes, age-encrypted)"
+          {
+            echo "### Backup uploaded"
+            echo ""
+            echo "- Object: \`pm-backups/$object\`"
+            echo "- Size: $size bytes (age-encrypted)"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -13,6 +13,10 @@ coverage/
 playwright-report/
 test-results/
 backups/
+# Database dumps and encrypted backups (migrations/*.sql stay tracked)
+dump*.sql
+*.sql.age
+pm-restore/
 *.log
 *.tsbuildinfo
 worker-configuration.d.ts
