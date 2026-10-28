@@ -1,8 +1,11 @@
-# Copy to .dev.vars (gitignored) for local development. Throwaway values only.
+# Copy to .dev.vars (gitignored) for local development. Throwaway values only, never reuse them.
+# Secrets must be 32 random bytes, base64url (the API answers 503 server_misconfigured otherwise):
+#   openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
 ENVIRONMENT=development
 # The Vite dev server (bun run dev) is the browser-facing origin and proxies /api to wrangler.
 APP_ORIGIN=http://localhost:5173
-AUTH_PEPPER=dev-only-auth-pepper-not-a-secret
-FAKE_SALT_KEY=dev-only-fake-salt-key-not-a-secret
-SERVER_ENC_KEY=dev-only-server-enc-key-not-a-secret
+AUTH_PEPPER=jQ3BDAcJFL1OfX1rIqSWV36ToP5kRd2fXzaGryIYqiY
+FAKE_SALT_KEY=IW7r1gsvZYMNG9mVlGAXsuZTt-5AWayT2utQ5eCsiJs
+SERVER_ENC_KEY=Brn-OGwRFpqPfMyMqdL8HV-B0dEonCycA3tFLCWcH7M
+# Optional in development: emails are printed to the console instead of being sent.
 RESEND_API_KEY=re_dev_dummy

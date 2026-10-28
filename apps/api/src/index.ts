@@ -1,11 +1,16 @@
 import { app } from "./app.ts";
+import { getDb } from "./db/client.ts";
 import type { Env } from "./env.ts";
+import { runCleanup } from "./jobs/cleanup.ts";
 
 export type { Env } from "./env.ts";
 
 export default {
   fetch: app.fetch,
 
-  // Daily cleanup (trash purge, expired sessions and codes) arrives in Phase 2+.
-  async scheduled(_controller: ScheduledController, _env: Env, _ctx: ExecutionContext) {},
+  // Daily cron (wrangler.jsonc `triggers.crons`): trash purge, expired sessions/codes, old logs.
+  async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
+    const result = await runCleanup(getDb(env));
+    console.log(`cleanup done: ${JSON.stringify(result)}`);
+  },
 } satisfies ExportedHandler<Env>;

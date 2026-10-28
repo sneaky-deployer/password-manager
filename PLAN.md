@@ -420,7 +420,7 @@ In local development, email sending is replaced by logging the link to the conso
    - Right, 2FA on: return `{twoFactorRequired: true, methods: [...], challengeToken}` (random, 5 min, stored hashed). Then `POST /api/auth/2fa/verify {challengeToken, totp | webauthnAssertion | backupCode}` creates the session.
 4. Client unwraps AK with `wrapKey`, decrypts the private key, then syncs vaults.
 
-**Sessions:** cookie `__Host-pm_session` (HttpOnly, Secure, SameSite=Strict, Path=/), value = 32 random bytes base64url. DB stores only `SHA-256(token)`. Idle expiry 30 days, absolute 90 days. Each user has a `security_stamp`; sessions created before the current stamp are invalid. Bumping the stamp logs out everywhere.
+**Sessions:** cookie `__Host-pm_session` (HttpOnly, Secure, SameSite=Strict, Path=/), value = 32 random bytes base64url. DB stores only `SHA-256(token)`. Idle expiry 30 days, absolute 90 days. Each user has a `security_stamp`; sessions created before the current stamp are invalid. Bumping the stamp logs out everywhere. In `development`/`test` (plain http) the cookie is named `pm_session` without `Secure`, because the `__Host-` prefix requires `Secure`; production always uses `__Host-pm_session`.
 
 ### 10.3 Lock and unlock
 
@@ -794,8 +794,8 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [x] `packages/shared`: zod schemas for item content and all API request/response bodies
 
 ### Phase 2: Accounts
-- [ ] D1 schema: users, invites, sessions, email_codes, auth_challenges, rate_limits, audit_events
-- [ ] Email sending via the Resend HTTP API with a dev mode that logs links/codes to the console; plain, text-first templates (invite, admin setup, recovery code, security notices)
+- [x] D1 schema: users, invites, sessions, email_codes, auth_challenges, rate_limits, audit_events
+- [x] Email sending via the Resend HTTP API with a dev mode that logs links/codes to the console; plain, text-first templates (invite, admin setup, recovery code, security notices)
 - [ ] Admin bootstrap: `/setup` page, `/setup/status`, `/setup/start` (10.0)
 - [ ] Invite acceptance: `/invite` page, `/invites/inspect`, `/auth/accept-invite`, recovery kit screen (10.1)
 - [ ] Admin console: send/resend/revoke invites, list users, disable/enable, change role (10.1a)
@@ -803,10 +803,10 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [ ] Crypto worker + lock/unlock + auto-lock (10.3)
 - [ ] Change master password (10.4)
 - [ ] Rate limiting (D1-backed fixed windows: login 10/15 min per email, 30/15 min per IP; email codes 5/hour per email; invite inspect 20/15 min per IP; setup start 3/hour)
-- [ ] Origin check middleware (exact match), session middleware with `security_stamp` and `status = active`, admin-role middleware
+- [x] Origin check middleware (exact match), session middleware with `security_stamp` and `status = active`, admin-role middleware
 
 ### Phase 3: Personal vault
-- [ ] D1 schema: vaults, vault_members, items, deletions
+- [x] D1 schema: vaults, vault_members, items, deletions
 - [ ] Default vault created when the invite is accepted; create/rename/delete extra vaults
 - [ ] Item CRUD (login, note) with revision conflicts, trash/restore/purge
 - [ ] `/sync` full + incremental
@@ -814,7 +814,7 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [ ] Inline + standalone password generator UI
 - [ ] TOTP: add via URI/secret/QR (camera, upload, paste), live code + countdown ring, next-code preview, clock skew correction, codes in the list view
 - [ ] Copy with clipboard auto-clear, reveal toggles
-- [ ] Daily cron: purge trash > 30 days, expired sessions/codes/challenges, old audit events and tombstones
+- [x] Daily cron: purge trash > 30 days, expired sessions/codes/challenges, old audit events and tombstones
 
 ### Phase 4: Sharing
 - [ ] `/users/lookup`, invitations, accept/decline
@@ -960,7 +960,7 @@ Vars set in the dashboard are overwritten on deploy, so they live in `wrangler.j
 | Name | Value | Purpose |
 |------|-------|---------|
 | `APP_ORIGIN` | `https://password-manager.azzaz.dev` | Exact Origin check, links in emails, WebAuthn RP ID (`password-manager.azzaz.dev`) |
-| `ENVIRONMENT` | `production` (local: `development`) | Development logs email links/codes instead of sending |
+| `ENVIRONMENT` | `production` (local: `development`, tests: `test`) | Anything else fails closed (503). Outside production, emails go to an in-memory outbox (development also logs them) and the session cookie drops the `__Host-`/`Secure` requirements |
 | `ADMIN_EMAIL` | owner's email (see [section 20](#20-open-questions-for-the-owner)) | Recipient of the one-time admin setup invite (10.0) |
 | `INVITE_TTL_HOURS` | `72` | Invite link lifetime |
 | `KDF_DEFAULT_MEM` | `67108864` | 64 MiB |

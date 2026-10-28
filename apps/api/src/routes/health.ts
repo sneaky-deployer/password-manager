@@ -1,4 +1,4 @@
 import { Hono } from "hono";
-import type { AppBindings } from "../env.ts";
+import type { AppEnv } from "../env.ts";
 
-export const health = new Hono<AppBindings>().get("/", (c) => c.json({ ok: true as const }));
+export const health = new Hono<AppEnv>().get("/", (c) => c.json({ ok: true as const }));
