@@ -720,7 +720,7 @@ Favicons: off by default (fetching `example.com/favicon.ico` would leak which si
 - 3–12 words, default 5; separator (`-`, space, `.`, `_`, digit); capitalise option; "include a number" option.
 
 **Output**
-- Entropy in bits computed from the generator settings (exact, e.g. 20 chars from 90 symbols ≈ 129 bits; 5 words ≈ 64.6 bits) shown as a meter: < 50 weak, 50–79 fair, 80–99 strong, ≥ 100 very strong.
+- Entropy in bits computed from the generator settings (exact, e.g. 20 chars from the full 86-character pool ≈ 128.5 bits; 5 words ≈ 64.6 bits) shown as a meter: < 50 weak, 50–79 fair, 80–99 strong, ≥ 100 very strong.
 - For passwords the user types in, use zxcvbn-ts instead.
 - Settings remembered per user (stored in encrypted user settings, or local non-sensitive preferences).
 - Available as a standalone page and inline in the item editor ("Generate" button next to the password field).
@@ -785,7 +785,7 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 
 ### Phase 1: Core libraries (no UI, fully tested)
 - [ ] `packages/crypto`: sodium init, Argon2id derive, subkeys, envelope encrypt/decrypt with AAD, sealed boxes, recovery phrase (BIP39) generate/parse, key bundle builders for account creation/password change/recovery, fixed test vectors
-- [ ] `packages/generator`: unbiased random index, random mode, passphrase mode (EFF list), entropy calculation, property tests (distribution, set guarantees)
+- [x] `packages/generator`: unbiased random index, random mode, passphrase mode (EFF list), entropy calculation, property tests (distribution, set guarantees)
 - [ ] `packages/otp`: URI parse/normalise/validate, Base32, code generation, `remaining()`/`progress()`, RFC 6238/4226 vectors
 - [ ] `packages/shared`: zod schemas for item content and all API request/response bodies
 
