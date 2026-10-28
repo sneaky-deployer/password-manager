@@ -2,7 +2,7 @@
 
 This document is the single source of truth for the project. It is written so that someone (a person or a new AI session) with **no prior context** can read it top to bottom and start working. If you change a decision, update this file in the same commit.
 
-**Status:** Phase 0 scaffold done (first deploy waits on owner setup, section 18). Next step: **Phase 1** (see [Build phases](#16-build-phases)).
+**Status:** Phases 0–1 done (first deploy waits on owner setup, section 18). Next step: **Phase 2** (see [Build phases](#16-build-phases)).
 
 ---
 
@@ -609,6 +609,8 @@ id TEXT PK, user_id, event TEXT (`login`, `password_changed`, `recovery_used`, `
 
 ## 13. HTTP API
 
+**The authoritative contract is the zod schemas in `packages/shared/src`** (plus `apiPaths` in `paths.ts`). This section is the overview; when they disagree, the schemas win and this section gets fixed. Decisions made while writing the schemas: 2FA verify bodies are discriminated on `method`; `recovery/complete`, `accept-invite` and `reset-account` start a session; account reset creates a **new user id** (AAD embeds the user id), so the server deletes the old user row and inserts a new one; vault rotation is one endpoint with `step: "chunk" | "finalize"`; member invites, item shares and vault metadata updates carry the `keyVersion` they were made with and the server rejects stale ones; `PUT /items/:id` accepts optional re-sealed `shareKeys` for item-key rotation; extra endpoints `POST /me/email-code` (sensitive-action codes) and `GET /me/2fa/webauthn` (list passkeys).
+
 All routes under `/api`. JSON in/out. Errors: `{ "error": { "code": "snake_case", "message": "Human text" } }`. All request bodies validated with zod schemas from `packages/shared`. Non-GET requests must carry a matching `Origin` header. Items and other blobs use base64url strings.
 
 ### Auth (no session required)
@@ -789,7 +791,7 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [x] `packages/crypto`: sodium init, Argon2id derive, subkeys, envelope encrypt/decrypt with AAD, sealed boxes, recovery phrase (BIP39) generate/parse, key bundle builders for account creation/password change/recovery, fixed test vectors
 - [x] `packages/generator`: unbiased random index, random mode, passphrase mode (EFF list), entropy calculation, property tests (distribution, set guarantees)
 - [x] `packages/otp`: URI parse/normalise/validate, Base32, code generation, `remaining()`/`progress()`, RFC 6238/4226 vectors
-- [ ] `packages/shared`: zod schemas for item content and all API request/response bodies
+- [x] `packages/shared`: zod schemas for item content and all API request/response bodies
 
 ### Phase 2: Accounts
 - [ ] D1 schema: users, invites, sessions, email_codes, auth_challenges, rate_limits, audit_events

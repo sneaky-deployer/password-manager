@@ -5,27 +5,16 @@ export const PACKAGE_NAME = "@pm/shared";
 export const healthResponseSchema = z.object({ ok: z.literal(true) });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 
-/**
- * HTTP security headers from PLAN.md section 8. The API middleware applies them to Worker
- * responses; `apps/web/public/_headers` applies the same values to static assets. A web test
- * fails if the two drift apart.
- */
-export const SECURITY_HEADERS = {
-  "Content-Security-Policy": [
-    "default-src 'self'",
-    "script-src 'self' 'wasm-unsafe-eval'",
-    "style-src 'self'",
-    "img-src 'self' data: blob:",
-    "connect-src 'self'",
-    "worker-src 'self' blob:",
-    "object-src 'none'",
-    "base-uri 'none'",
-    "frame-ancestors 'none'",
-    "form-action 'self'",
-  ].join("; "),
-  "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
-  "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "no-referrer",
-  "Permissions-Policy": "camera=(self), clipboard-write=(self), geolocation=(), microphone=()",
-  "Cross-Origin-Opener-Policy": "same-origin",
-} as const;
+export * from "./admin.ts";
+export * from "./auth.ts";
+export * from "./constants.ts";
+export * from "./errors.ts";
+export * from "./item.ts";
+export * from "./items.ts";
+export * from "./me.ts";
+export * from "./paths.ts";
+export * from "./primitives.ts";
+export * from "./security-headers.ts";
+export * from "./shares.ts";
+export * from "./sync.ts";
+export * from "./vaults.ts";
