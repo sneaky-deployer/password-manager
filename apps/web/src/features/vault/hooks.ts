@@ -52,6 +52,12 @@ export function useItem(id: string | undefined) {
     enabled: Boolean(summary),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 30_000,
+    // A revision bump (an edit, a key rotation after revoking a share, a sync of someone else's
+    // change) changes the key and refetches. Keep showing the same item's previous content while
+    // that runs: otherwise the whole detail pane swaps to a spinner and unmounts its open dialogs
+    // (e.g. the share dialog loses its "revoked" notice). Never carry content over to ANOTHER item.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === id ? previous : undefined,
   });
   return {
     summary,

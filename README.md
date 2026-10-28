@@ -43,8 +43,13 @@ Local D1 migrations: `bun run db:migrate:local`. After changing `apps/api/src/db
 | `bun run db:migrate:local` / `db:migrate:remote` | Apply D1 migrations locally / to production                                                  |
 | `bun run deploy`                                 | Fallback manual deploy (build, remote migrations, `wrangler deploy`); needs `wrangler login` |
 
-End-to-end tests (Playwright, not run in CI yet): `cd apps/web && bunx playwright install chromium && bun run test:e2e`.
-If Chromium is installed elsewhere, set `PW_CHROMIUM_EXECUTABLE=/path/to/chrome`.
+End-to-end tests (Playwright, run in CI by `.github/workflows/e2e.yml`): `bunx playwright install chromium`
+once, then `bun run test:e2e` from the repo root. It builds the SPA, starts an isolated `wrangler dev`
+(own config, own local D1 in a temp dir, throwaway secrets; your `apps/api/.dev.vars` is not used) and
+drives real Chromium through the main journeys with two browser contexts. Dev emails (invite links,
+email codes) are read from wrangler's log. The specs in `apps/web/e2e` are ordered journeys that share
+one server, so run them together. If Chromium is installed elsewhere, set
+`PW_CHROMIUM_EXECUTABLE=/path/to/chrome`; `E2E_PORT` changes the port (default 8799).
 
 ## Layout
 

@@ -1,3 +1,4 @@
+import "./zod-config.ts";
 import { z } from "zod";
 
 export const PACKAGE_NAME = "@pm/shared";

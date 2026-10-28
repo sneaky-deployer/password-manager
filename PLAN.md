@@ -2,7 +2,7 @@
 
 This document is the single source of truth for the project. It is written so that someone (a person or a new AI session) with **no prior context** can read it top to bottom and start working. If you change a decision, update this file in the same commit.
 
-**Status:** Phases 0–5 implemented and tested (all routes in section 13). Web app for Phases 2–5 done. Remaining: Phase 6 (E2E tests, import/export, hardening) and the first deploy. First deploy waits on owner setup (section 18) (see [Build phases](#16-build-phases)).
+**Status:** Phases 0–5 implemented and tested (all routes in section 13). Web app for Phases 2–5 done. E2E suite green. Remaining: rest of Phase 6 (import/export, bundle splitting, dependency audit, quota error pages) and the first deploy (owner setup). First deploy waits on owner setup (section 18) (see [Build phases](#16-build-phases)).
 
 ---
 
@@ -263,7 +263,7 @@ Permissions-Policy: camera=(self), clipboard-write=(self), geolocation=(), micro
 Cross-Origin-Opener-Policy: same-origin
 ```
 
-(`wasm-unsafe-eval` is required for libsodium's WASM. Camera is for QR scanning.)
+(`wasm-unsafe-eval` is required for libsodium's WASM. Camera is for QR scanning.) Because there is no `unsafe-eval`, zod is configured with `z.config({ jitless: true })` in `packages/shared/src/zod-config.ts` (imported first by `@pm/shared`); otherwise zod 4 probes `new Function` and every page load logs a CSP violation.
 
 ---
 
@@ -860,8 +860,8 @@ Known gaps after Phases 3–4 (tracked for later): moving an item that has item 
 
 ### Phase 6: Production hardening
 - [x] `backup.yml`: daily `wrangler d1 export --remote` → `age` encrypt → R2, 30-day lifecycle rule; documented restore drill (`scripts/restore.md`) and one test restore into a scratch D1 (the drill itself waits on owner setup)
-- [ ] CSP and headers verified on both assets and API; `securityheaders.com`-style check
-- [ ] Playwright E2E for admin setup → invite → accept → add item with TOTP → share → recipient sees it → revoke → change password → recover with kit
+- [ ] CSP and headers verified on both assets and API (done in e2e: identical headers on HTML/asset/API, zero CSP violations); external `securityheaders.com`-style check after first deploy
+- [x] Playwright E2E for admin setup → invite → accept → add item with TOTP → share → recipient sees it → revoke → change password → recover with kit
 - [ ] Import (CSV formats) and export (encrypted JSON, CSV)
 - [ ] Quota-exceeded handling and friendly error pages
 - [ ] Code-split the main bundle (lazy-load zxcvbn, settings and admin)
@@ -889,7 +889,7 @@ Known gaps after Phases 3–4 (tracked for later): moving an item that has item 
 | `packages/otp` | Vitest | RFC 6238 + RFC 4226 vectors, URI parsing edge cases, countdown maths at period boundaries |
 | `apps/api` | Vitest + `@cloudflare/vitest-plugin` (real workerd + local D1) | Every route: auth, role enforcement (viewer can't write, removed member gets 403), revision conflicts, rate limits, session invalidation via `security_stamp`, fake-salt prelogin |
 | `apps/web` | Vitest + Testing Library | Generator UI, TOTP widget timing (fake timers), lock/unlock |
-| End to end | Playwright | The Phase 6 journey across two browser contexts (two users), starting from admin bootstrap and an invite |
+| End to end | Playwright (`apps/web/e2e`, `bun run test:e2e`, CI: `e2e.yml`) | Ordered journeys 00–09 against a real `wrangler dev` + built SPA with an isolated local D1: bootstrap/invite, items/generator/TOTP, sharing + revoke + rotation, lock/password change/recovery, security smoke (headers, cookie flags, storage, CSP), 2FA/admin, editor + item share, reset flows, mobile. Emails are read from the dev email log. Specs share state, so run the whole suite. Not automated: passkeys, camera QR scanning, idle auto-lock, production-only cookie/email/cron |
 
 CI must pass before merge/deploy. Crypto code changes require new or updated tests in the same commit.
 
