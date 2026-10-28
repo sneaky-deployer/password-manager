@@ -102,12 +102,12 @@ describe("unlock page", () => {
 });
 
 describe("app shell", () => {
-  it("shows the shell with a sidebar slot, placeholder page and lock button", async () => {
+  it("shows the shell with the vault sidebar and a lock button", async () => {
     mockApi(me());
     const user = userEvent.setup();
     renderApp("/vault", { locked: false });
 
-    expect(await screen.findByText("Your vault will appear here")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /All items/ })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Vaults" })).toBeInTheDocument();
     expect(screen.getByRole("banner")).toBeInTheDocument();
 
@@ -119,7 +119,7 @@ describe("app shell", () => {
   it("locks the screen when the worker locks (auto-lock, crash)", async () => {
     mockApi(me());
     renderApp("/vault", { locked: false });
-    await screen.findByText("Your vault will appear here");
+    await screen.findByRole("link", { name: /All items/ });
     act(() => lockStore.set("locked"));
     expect(await screen.findByRole("heading", { name: "Vault locked" })).toBeInTheDocument();
   });
@@ -128,7 +128,7 @@ describe("app shell", () => {
     mockApi(me("admin"));
     const user = userEvent.setup();
     renderApp("/vault", { locked: false });
-    await screen.findByText("Your vault will appear here");
+    await screen.findByRole("link", { name: /All items/ });
     await user.click(screen.getByRole("button", { name: "Account menu" }));
     const menu = screen.getByRole("menu");
     expect(within(menu).getByRole("menuitem", { name: "Settings" })).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe("app shell", () => {
     const api = mockApi({ ...me(), "POST /api/auth/logout": () => ({ ok: true }) });
     const user = userEvent.setup();
     renderApp("/vault", { locked: false });
-    await screen.findByText("Your vault will appear here");
+    await screen.findByRole("link", { name: /All items/ });
     await user.click(screen.getByRole("button", { name: "Account menu" }));
     expect(screen.queryByRole("menuitem", { name: "Admin" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("menuitem", { name: "Log out" }));

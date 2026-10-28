@@ -159,7 +159,7 @@ describe("Invite page", () => {
     }
     await user.click(screen.getByRole("button", { name: /I saved it/ }));
     await waitFor(() =>
-      expect(screen.getByText("Your vault will appear here")).toBeInTheDocument(),
+      expect(screen.getByRole("link", { name: /All items/ })).toBeInTheDocument(),
     );
     expect(cryptoCall).toHaveBeenCalledWith("commitAccountCreation");
   });

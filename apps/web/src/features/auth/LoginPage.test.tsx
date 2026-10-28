@@ -103,7 +103,7 @@ describe("Login page", () => {
     renderApp("/login");
     await submitCredentials(user);
     await waitFor(() =>
-      expect(screen.getByText("Your vault will appear here")).toBeInTheDocument(),
+      expect(screen.getByRole("link", { name: /All items/ })).toBeInTheDocument(),
     );
     expect(cryptoCall).toHaveBeenCalledWith("completeLogin", makeKeyBundle());
     expect(lockStore.get()).toBe("unlocked");
@@ -140,7 +140,7 @@ describe("Login page", () => {
     await user.type(screen.getByLabelText("6-digit code"), "123456");
     await user.click(screen.getByRole("button", { name: "Verify" }));
     await waitFor(() =>
-      expect(screen.getByText("Your vault will appear here")).toBeInTheDocument(),
+      expect(screen.getByRole("link", { name: /All items/ })).toBeInTheDocument(),
     );
     expect(api.called("POST", "/api/auth/2fa/verify")[0]?.body).toEqual({
       challengeToken: TOKEN32,
@@ -214,7 +214,7 @@ describe("Login page", () => {
     renderApp("/login");
     await submitCredentials(user);
     await waitFor(() =>
-      expect(screen.getByText("Your vault will appear here")).toBeInTheDocument(),
+      expect(screen.getByRole("link", { name: /All items/ })).toBeInTheDocument(),
     );
     expect(api.called("POST", "/api/me/kdf-upgrade")[0]?.body).toEqual(upgrade);
   });

@@ -229,6 +229,7 @@ age-keygen -o key.txt
    you could not reach the key needed to restore it. Never put it in the repo, in GitHub secrets or
    variables, or in chat.
 3. Test the pair before relying on it:
+
    ```bash
    echo hello | age -r age1...yourpublickey > t.age && age -d -i key.txt t.age   # prints: hello
    rm t.age

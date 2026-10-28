@@ -117,7 +117,7 @@ describe("Admin invites tab", () => {
   it("keeps non-admins out of /admin", async () => {
     mockApi({ "GET /api/me": () => ({ user: makeUser({ role: "user" }) }) });
     renderApp("/admin/invites", { locked: false });
-    expect(await screen.findByText("Your vault will appear here")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /All items/ })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Admin" })).not.toBeInTheDocument();
   });
 });

@@ -50,6 +50,11 @@ export interface WorkerState {
   clearPending(): void;
   /** Wipe every key and pending material. Safe to call repeatedly. */
   lock(): void;
+  /**
+   * Register a cleanup that runs on every `lock()` and whenever new account keys replace the
+   * old ones (`setUnlocked`). Op groups that keep their own decrypted caches use it.
+   */
+  onLock(listener: () => void): void;
 }
 
 function wipeVaultKeys(vaultKeys: Map<string, Map<number, Uint8Array>>): void {
@@ -61,6 +66,10 @@ function wipeVaultKeys(vaultKeys: Map<string, Map<number, Uint8Array>>): void {
 }
 
 export function createWorkerState(): WorkerState {
+  const lockListeners: Array<() => void> = [];
+  const runLockListeners = () => {
+    for (const listener of lockListeners) listener();
+  };
   const state: WorkerState = {
     userId: null,
     accountKey: null,
@@ -78,6 +87,7 @@ export function createWorkerState(): WorkerState {
     setUnlocked(keys) {
       wipe(state.accountKey, state.privateKey, state.publicKey);
       wipeVaultKeys(state.vaultKeys);
+      runLockListeners();
       state.userId = keys.userId;
       state.accountKey = keys.accountKey;
       state.privateKey = keys.privateKey;
@@ -107,10 +117,15 @@ export function createWorkerState(): WorkerState {
       state.clearPending();
       wipe(state.accountKey, state.privateKey, state.publicKey);
       wipeVaultKeys(state.vaultKeys);
+      runLockListeners();
       state.userId = null;
       state.accountKey = null;
       state.privateKey = null;
       state.publicKey = null;
+    },
+
+    onLock(listener) {
+      lockListeners.push(listener);
     },
   };
   return state;

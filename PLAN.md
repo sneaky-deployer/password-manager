@@ -2,7 +2,7 @@
 
 This document is the single source of truth for the project. It is written so that someone (a person or a new AI session) with **no prior context** can read it top to bottom and start working. If you change a decision, update this file in the same commit.
 
-**Status:** Phases 0–1 done; the **API for Phases 2–5 is implemented and tested** (all routes in section 13). Web account side (Phases 2 and 5) done; vault UI (Phases 3–4) in progress. First deploy waits on owner setup (section 18) (see [Build phases](#16-build-phases)).
+**Status:** Phases 0–5 implemented and tested (all routes in section 13). Web app for Phases 2–5 done. Remaining: Phase 6 (E2E tests, import/export, hardening) and the first deploy. First deploy waits on owner setup (section 18) (see [Build phases](#16-build-phases)).
 
 ---
 
@@ -829,22 +829,22 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 
 ### Phase 3: Personal vault
 - [x] D1 schema: vaults, vault_members, items, deletions
-- [ ] Default vault created when the invite is accepted; create/rename/delete extra vaults
-- [ ] Item CRUD (login, note) with revision conflicts, trash/restore/purge
+- [x] Default vault created when the invite is accepted; create/rename/delete extra vaults
+- [x] Item CRUD (login, note) with revision conflicts, trash/restore/purge
 - [x] `/sync` full + incremental
-- [ ] UI: sidebar, item list with client-side search, item detail, item editor
+- [x] UI: sidebar, item list with client-side search, item detail, item editor
 - [x] Inline + standalone password generator UI
 - [x] TOTP: add via URI/secret/QR (camera, upload, paste), live code + countdown ring, next-code preview, clock skew correction, codes in the list view
-- [ ] Copy with clipboard auto-clear, reveal toggles
+- [x] Copy with clipboard auto-clear, reveal toggles
 - [x] Daily cron: purge trash > 30 days, expired sessions/codes/challenges, old audit events and tombstones
 
 ### Phase 4: Sharing
 - [x] `/users/lookup`, invitations, accept/decline
 - [x] Vault sharing with roles, server-side role enforcement
-- [ ] Single-item sharing
-- [ ] Revocation with key rotation (vault and item), `rotation_pending` recovery
-- [ ] Move item between vaults
-- [ ] "Shared with me" view, member management UI, leave vault
+- [x] Single-item sharing
+- [x] Revocation with key rotation (vault and item), `rotation_pending` recovery
+- [x] Move item between vaults
+- [x] "Shared with me" view, member management UI, leave vault
 
 ### Phase 5: Account security and recovery
 - [x] Login TOTP (setup, enable, disable, replay protection)
@@ -856,12 +856,15 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [x] Sessions list/revoke UI, activity log UI
 - [x] Delete account (self and by admin)
 
+Known gaps after Phases 3–4 (tracked for later): moving an item that has item shares is disabled in the UI; pending single-item invitations show no item name until accepted (the pending-shares API returns no item ciphertext); the main JS bundle is ~1.3 MB (zxcvbn dictionaries), code-splitting is a Phase 6 task.
+
 ### Phase 6: Production hardening
 - [x] `backup.yml`: daily `wrangler d1 export --remote` → `age` encrypt → R2, 30-day lifecycle rule; documented restore drill (`scripts/restore.md`) and one test restore into a scratch D1 (the drill itself waits on owner setup)
 - [ ] CSP and headers verified on both assets and API; `securityheaders.com`-style check
 - [ ] Playwright E2E for admin setup → invite → accept → add item with TOTP → share → recipient sees it → revoke → change password → recover with kit
 - [ ] Import (CSV formats) and export (encrypted JSON, CSV)
 - [ ] Quota-exceeded handling and friendly error pages
+- [ ] Code-split the main bundle (lazy-load zxcvbn, settings and admin)
 - [ ] Dependency audit; pin versions; enable Dependabot/Renovate
 - [ ] Threat model review against [section 8](#8-security-model)
 
