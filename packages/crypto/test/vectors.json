@@ -1,0 +1,76 @@
+{
+  "ids": {
+    "userId": "11111111-1111-4111-8111-111111111111",
+    "vaultId": "22222222-2222-4222-8222-222222222222",
+    "itemId": "33333333-3333-4333-8333-333333333333"
+  },
+  "aad": {
+    "akPw": "pm:v1:ak:pw:11111111-1111-4111-8111-111111111111",
+    "akRec": "pm:v1:ak:rec:11111111-1111-4111-8111-111111111111",
+    "privateKey": "pm:v1:privkey:11111111-1111-4111-8111-111111111111",
+    "vaultMeta": "pm:v1:vaultmeta:22222222-2222-4222-8222-222222222222:1",
+    "itemKey": "pm:v1:itemkey:22222222-2222-4222-8222-222222222222:33333333-3333-4333-8333-333333333333:1",
+    "item": "pm:v1:item:33333333-3333-4333-8333-333333333333:1"
+  },
+  "envelope": {
+    "key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "nonce": "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3",
+    "plaintext": "{\"title\":\"Example\",\"password\":\"hunter2\"}",
+    "cases": {
+      "akPw": {
+        "aad": "pm:v1:ak:pw:11111111-1111-4111-8111-111111111111",
+        "envelope": "AaChoqOkpaanqKmqq6ytrq-wsbKztLW2tz7OfnTDMcGOW01o8RBd06xeiLMO2me5qmov-YPFmdxepOneSjR0XrGQVsSoIeFIpqXJpClycbir"
+      },
+      "akRec": {
+        "aad": "pm:v1:ak:rec:11111111-1111-4111-8111-111111111111",
+        "envelope": "AaChoqOkpaanqKmqq6ytrq-wsbKztLW2tz7OfnTDMcGOW01o8RBd06xeiLMO2me5qmov-YPFmdxepOneSjR0XrHK9-0UWvm8NGGKbIu5rFoK"
+      },
+      "privateKey": {
+        "aad": "pm:v1:privkey:11111111-1111-4111-8111-111111111111",
+        "envelope": "AaChoqOkpaanqKmqq6ytrq-wsbKztLW2tz7OfnTDMcGOW01o8RBd06xeiLMO2me5qmov-YPFmdxepOneSjR0XrH5-Rqx8L0qbtE2ISEEFiM_"
+      },
+      "vaultMeta": {
+        "aad": "pm:v1:vaultmeta:22222222-2222-4222-8222-222222222222:1",
+        "envelope": "AaChoqOkpaanqKmqq6ytrq-wsbKztLW2tz7OfnTDMcGOW01o8RBd06xeiLMO2me5qmov-YPFmdxepOneSjR0XrHRIAiAyi681Z4opXdU4Z8r"
+      },
+      "itemKey": {
+        "aad": "pm:v1:itemkey:22222222-2222-4222-8222-222222222222:33333333-3333-4333-8333-333333333333:1",
+        "envelope": "AaChoqOkpaanqKmqq6ytrq-wsbKztLW2tz7OfnTDMcGOW01o8RBd06xeiLMO2me5qmov-YPFmdxepOneSjR0XrFLMVU04quhjuRzdxaVgnl6"
+      },
+      "item": {
+        "aad": "pm:v1:item:33333333-3333-4333-8333-333333333333:1",
+        "envelope": "AaChoqOkpaanqKmqq6ytrq-wsbKztLW2tz7OfnTDMcGOW01o8RBd06xeiLMO2me5qmov-YPFmdxepOneSjR0XrH4GlLyAlA77TecYxJJDzc1"
+      }
+    }
+  },
+  "kdf": {
+    "password": "correct horse battery staple",
+    "salt": "QEFCQ0RFRkdISUpLTE1OTw",
+    "cases": {
+      "min": {
+        "kdf": {
+          "alg": "argon2id13",
+          "mem": 16777216,
+          "ops": 2
+        },
+        "authKey": "5eCq_MWz87Bjs6GA56lqP14xCwzmDvr2BdGAGZfU3Sc",
+        "wrapKey": "XnthyIvVfX5zLUAnmkx1zpQDFhVawzte6QhF7tEgUJQ"
+      },
+      "default": {
+        "kdf": {
+          "alg": "argon2id13",
+          "mem": 67108864,
+          "ops": 3
+        },
+        "authKey": "4qxTDkcFBbelnT_EUckSvVJV9of_2uRZpnVYjL2XsKc",
+        "wrapKey": "YZcW1e2yCrWEK56vQ03HhjbEZNXIRIQFdy4IcJGFp3Q"
+      }
+    }
+  },
+  "recovery": {
+    "entropy": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "phrase": "abandon amount liar amount expire adjust cage candy arch gather drum bullet absurd math era live bid rhythm alien crouch range attend journey unaware",
+    "recoveryAuthKey": "WFhSVHdjO5Rr1a3wcAdogJ5IhY6wPOnla7xAjbrOleI",
+    "recoveryWrapKey": "yQv8rQkHEQ581FbHRWA07hic6PPc_skSjrtokrp2Y2M"
+  }
+}

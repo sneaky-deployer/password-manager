@@ -282,6 +282,8 @@ All crypto code lives in `packages/crypto`. Nothing else may call libsodium dire
 | Randomness | `randombytes_buf` / `crypto.getRandomValues` |
 | Server-side verifier | HMAC-SHA256 via WebCrypto in the Worker |
 
+Passwords are normalised with Unicode **NFKC** before Argon2id, so the same password typed on different systems derives the same key (this can never change without breaking accounts). The client refuses KDF parameters outside mem 16 MiB–1 GiB / ops 2–16, so a malicious server can neither downgrade the KDF nor make the client hang. On unlock the client checks that the public key in the key bundle matches the decrypted private key.
+
 KDF parameters are stored **per user** (`kdf_mem`, `kdf_ops`), so we can raise them later. When a user unlocks with weaker-than-current parameters, the client silently re-wraps the account key with new parameters (same flow as a password change, with the same password).
 
 ### 9.2 Key hierarchy
@@ -784,7 +786,7 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [ ] First deploy to `https://password-manager.azzaz.dev` (Custom Domain in `wrangler.jsonc`), `/api/health` returns OK. **Blocked on owner setup (section 18).** `deploy.yml` skips migrate/deploy with a notice until `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and a real `database_id` exist
 
 ### Phase 1: Core libraries (no UI, fully tested)
-- [ ] `packages/crypto`: sodium init, Argon2id derive, subkeys, envelope encrypt/decrypt with AAD, sealed boxes, recovery phrase (BIP39) generate/parse, key bundle builders for account creation/password change/recovery, fixed test vectors
+- [x] `packages/crypto`: sodium init, Argon2id derive, subkeys, envelope encrypt/decrypt with AAD, sealed boxes, recovery phrase (BIP39) generate/parse, key bundle builders for account creation/password change/recovery, fixed test vectors
 - [x] `packages/generator`: unbiased random index, random mode, passphrase mode (EFF list), entropy calculation, property tests (distribution, set guarantees)
 - [x] `packages/otp`: URI parse/normalise/validate, Base32, code generation, `remaining()`/`progress()`, RFC 6238/4226 vectors
 - [ ] `packages/shared`: zod schemas for item content and all API request/response bodies
