@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This repo is a **multi-user, end-to-end encrypted password manager** (like Proton Pass): password storage, a strong password generator, TOTP codes with a live countdown, and sharing between users. It runs entirely on Cloudflare's free plan: one Worker (Hono API + React SPA as static assets) with D1 (SQLite). Bun is the package manager and workspace tool.
+This repo is a **multi-user, end-to-end encrypted password manager** (like Proton Pass): password storage, a strong password generator, TOTP codes with a live countdown, and sharing between users. Accounts are invite-only (a super admin invites users by email). It runs entirely on Cloudflare's free plan: one Worker (Hono API under `/api` + React SPA as static assets) on `https://password-manager.azzaz.dev`, with D1 (SQLite). Bun is the package manager and workspace tool; GitHub Actions deploys with Wrangler on push to `master`.
 
 **Read `PLAN.md` before doing anything.** It holds the goals, decisions and why they were made, the security model, the cryptography design, the data model, the API, and the phased build plan with checklists. Section 16 shows which phase is current.
 

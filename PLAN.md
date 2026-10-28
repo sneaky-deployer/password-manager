@@ -2,7 +2,7 @@
 
 This document is the single source of truth for the project. It is written so that someone (a person or a new AI session) with **no prior context** can read it top to bottom and start working. If you change a decision, update this file in the same commit.
 
-**Status:** planning complete, no code yet. Next step: **Phase 0** (see [Build phases](#16-build-phases)).
+**Status:** planning complete, no code yet. Owner decisions on registration, domain, email and CI recorded (section 20). Next step: **Phase 0** (see [Build phases](#16-build-phases)).
 
 ---
 
@@ -17,7 +17,7 @@ This document is the single source of truth for the project. It is written so th
 7. [Repository layout](#7-repository-layout)
 8. [Security model](#8-security-model)
 9. [Cryptography design](#9-cryptography-design)
-10. [Account flows: signup, login, unlock, password change, recovery](#10-account-flows-signup-login-unlock-password-change-recovery)
+10. [Account flows: invites, login, unlock, password change, recovery](#10-account-flows-invites-login-unlock-password-change-recovery)
 11. [Sharing](#11-sharing)
 12. [Data model (D1)](#12-data-model-d1)
 13. [HTTP API](#13-http-api)
@@ -41,12 +41,13 @@ A **multi-user, end-to-end encrypted password manager** in the style of Proton P
 
 | # | Feature | Summary |
 |---|---------|---------|
-| 1 | **Accounts** | Users sign up with email + master password. Each user has their own encrypted vault(s). |
+| 1 | **Accounts (invite-only)** | No public signup. A super admin invites people by email; the invitee opens the link, sets their master password and is logged in. Each user has their own encrypted vault(s). |
 | 2 | **Secure storage** | Logins (username, password, URLs, notes, custom fields), secure notes. Everything is encrypted in the browser before it reaches the server. |
 | 3 | **Strong password generator** | Random-character passwords and word-based passphrases, generated with a cryptographically secure RNG, with a strength/entropy readout. |
 | 4 | **TOTP authenticator** | Store 2FA secrets (from `otpauth://` URIs or QR codes) inside items. Show the current code with a **live countdown** that regenerates at the end of each period (30 s, 60 s, or whatever the site uses). |
 | 5 | **Sharing** | Share a whole vault or a single item with other registered users, with roles (viewer, editor, manager). Revoke access at any time. |
 | 6 | **Account security** | Login 2FA for the app itself (TOTP and passkeys/WebAuthn), backup codes, session management, auto-lock. |
+| 8 | **Admin** | Super admin manages invites (send, resend, revoke) and users (disable, enable, delete, reset). Admins can never read anyone's vault. |
 | 7 | **Recovery** | Change master password instantly; recover a forgotten master password with a **recovery kit** (24-word phrase) without losing data. |
 
 ### Later features (post-MVP, see Phase 7)
@@ -82,6 +83,8 @@ Password health (weak/reused), breach check (Have I Been Pwned k-anonymity API),
 | Monorepo tooling | **Bun** workspaces | Fast installs and scripts; owner preference | npm/pnpm workspaces |
 | API framework | **Hono** | Tiny, typed, Web-standard APIs; runs on Workers, Bun, Node and Fly unchanged | Express (Node-specific, larger, doesn't run on Workers natively) |
 | Hosting | **One Cloudflare Worker** serving both the API (`/api/*`) and the SPA (static assets) | Free plan, one origin (no CORS, simple cookies), static asset requests are free | Cloudflare Pages + Fly.io (Fly has no free tier for new accounts since Oct 2024; two origins); Cloudflare Pages (Cloudflare now steers new projects to Workers static assets) |
+| Domain | **`password-manager.azzaz.dev`** as a Workers Custom Domain; API at `/api/*` on the same host | Owner's zone `azzaz.dev` is on Cloudflare (apex = personal portfolio). Free Universal SSL covers the apex and **one** subdomain level only, so the app must be a first-level subdomain (never e.g. `api.password-manager.azzaz.dev`). A path prefix avoids a second subdomain, CORS and cross-origin cookies | Separate `api.` subdomain (two origins, CORS, cookie scoping) |
+| Registration | **Invite-only.** A super admin is bootstrapped via an emailed setup link to `ADMIN_EMAIL`; the admin invites users by email | Small private user group; protects free quotas; no shared "known" credentials (see 10.0) | Open signup; seeded admin with a known password (server can't create E2E keys, and a known password stays usable against old backups forever) |
 | Production runtime | Cloudflare `workerd` (not Bun) | That's what the free plan runs. Bun is used for local tooling only | Bun on Fly.io (costs money) |
 | Database | **Cloudflare D1** (SQLite) | Free, same account, no cold starts, no connection pooling, 7-day point-in-time restore. Encrypted blobs need nothing Postgres-specific | Supabase free (pauses after ~7 days idle and stays offline until manually restored); Neon free (works, but a second vendor and cold starts) |
 | ORM / query builder | **Drizzle** + drizzle-kit migrations | First-class D1 support, light, fast startup, typed | Prisma (heavier; D1 support via adapter) |
@@ -91,7 +94,8 @@ Password health (weak/reused), breach check (Have I Been Pwned k-anonymity API),
 | TOTP | `otpauth` library, computed in the browser | Supports SHA1/256/512, 6–8 digits, any period; secrets never leave the client unencrypted | Server-side TOTP generation (server would need secrets) |
 | Recovery phrase encoding | BIP39 24 words via `@scure/bip39` | Well-known, has a checksum, audited, tiny | Custom word encoding |
 | Frontend | React + Vite SPA, TanStack Query, TanStack Router, Tailwind CSS | Common, well-documented, fast builds | Next.js / SSR (unnecessary; server can't render decrypted data anyway) |
-| Email sending | **Resend** free tier (or Cloudflare's own email sending if it's free and available when we reach Phase 2) | Needed for verification and recovery codes; free tier covers a small user base | Self-hosted SMTP |
+| Email sending | **Resend HTTP API** (`POST https://api.resend.com/emails` with `fetch`), free tier | Needed for invites and recovery codes; free tier covers a small user base. One `fetch` from the Worker, no extra dependency | Resend SMTP (Workers have no built-in SMTP client); self-hosted SMTP |
+| CI/CD | **GitHub Actions** (private repo) running **Wrangler** with a scoped Cloudflare API token; deploy on push to `master` | Standard, free within 2,000 min/month, no local credentials needed by contributors or AI sessions | Manual `wrangler deploy` from a laptop |
 | Backups | GitHub Actions scheduled job: `wrangler d1 export` → encrypt with `age` → upload to **R2** | Free (Actions + R2 free tier); off-platform copy beyond D1's 7-day restore window | Upstash QStash (would still need somewhere to run `pg_dump`/export) |
 | Scheduled jobs | Workers **Cron Triggers** in the same Worker | Free; used for purging trash, expired sessions and codes | External cron services |
 | Lint/format | **Biome** | One fast tool for both | ESLint + Prettier |
@@ -116,9 +120,9 @@ Figures checked in October 2026. Re-check Cloudflare's docs if something looks o
 | D1 transactions | No interactive transactions; `batch()` is atomic | All multi-row writes (password change, key rotation) go through one `batch()` |
 | Cron Triggers | Available on free | One daily cleanup job |
 | R2 | 10 GB storage, 1M Class A ops/month | Daily backup, keep 30 days via lifecycle rule |
-| GitHub Actions | Free for public repos; 2,000 min/month private | CI + daily backup job ≈ a few hundred minutes/month |
-| Resend | ~3,000 emails/month, 100/day | Emails only for verification and recovery codes |
-| Domain | `*.workers.dev` subdomain is free | Custom domain optional (costs money for the domain itself) |
+| GitHub Actions | Repo is **private**: 2,000 min/month | CI + deploy + daily backup ≈ a few hundred minutes/month. Cache Bun installs; skip E2E on docs-only changes |
+| Resend | ~3,000 emails/month, 100/day, 1 sending domain | Emails only for invites, recovery codes and security notices |
+| Domain | Owner already owns `azzaz.dev` (on Cloudflare) | `password-manager.azzaz.dev` Custom Domain and its certificate are free |
 
 When a daily D1 limit is exceeded, queries fail until 00:00 UTC. For a small user group this won't happen; the API must still return a clear error (`503`, code `quota_exceeded`) rather than crash.
 
@@ -231,7 +235,8 @@ password-manager/
 | Server operator / compromised API reading data | Server never receives plaintext or keys |
 | Network attacker | HTTPS only, HSTS, `__Host-` cookies |
 | XSS stealing keys | Strict CSP, no third-party scripts, React escaping, no `dangerouslySetInnerHTML`, keys live in a Web Worker and never in `localStorage`/`sessionStorage` |
-| CSRF | `SameSite=Strict` cookie, same origin, `Origin` header check on all non-GET requests |
+| CSRF | `SameSite=Strict` cookie, same origin, and an **exact** `Origin` header check (`=== APP_ORIGIN`) on all non-GET requests. The exact check matters: sibling subdomains such as the portfolio at `azzaz.dev` count as "same-site", so `SameSite` alone doesn't stop them |
+| Sibling subdomains on `azzaz.dev` | `__Host-` cookie (bound to the exact host, can't be set or read by `azzaz.dev`); WebAuthn RP ID is `password-manager.azzaz.dev`, not `azzaz.dev` |
 | Online password guessing | Rate limits per email and per IP, login 2FA |
 | Ciphertext swapping (server moves item A's ciphertext onto item B) | Every ciphertext is bound to its ID with AEAD associated data (AAD) |
 | Stolen session cookie | Still needs the master password to decrypt (keys are not in the session). Sessions listable and revocable; idle and absolute expiry |
@@ -290,7 +295,7 @@ salt (16 B, random, per user, public) ─┴─ Argon2id ──► passwordKey (
                                            authKey               wrapKey
                                    (sent to server at login)  (encrypts the account key)
                                                                      │
-                                ACCOUNT KEY  AK (32 B random, created once at signup, never changes
+                                ACCOUNT KEY  AK (32 B random, created once at account creation, never changes
                                              unless the user explicitly rotates keys)
                                  ├── encrypts ──► identity private key (X25519)
                                  └── (public key stored in plaintext on the server)
@@ -356,19 +361,52 @@ Changing any format means bumping the version prefix (`v2`) and keeping the deco
 
 ---
 
-## 10. Account flows: signup, login, unlock, password change, recovery
+## 10. Account flows: invites, login, unlock, password change, recovery
 
-### 10.1 Signup
+There is **no public signup**. Every account is created by accepting an invite. User roles: `admin` (can manage invites and users) and `user`.
 
-1. User enters email. `POST /api/auth/email/start {email, purpose:"signup"}` sends a 6-digit code (valid 15 min, 5 attempts). This proves they own the email before an account exists.
-2. User enters the code, a master password (minimum 12 characters, zxcvbn score ≥ 3, with a clear explanation that it can't be reset by us), and confirms it.
-3. In the crypto worker the client:
+### 10.0 Bootstrapping the super admin
+
+Why not a seeded admin with known credentials: in an E2E design the server can't create an account at all (the key material is derived from the master password in a browser), and a password that is "known" (in chat, the repo, env files or CI logs) protects the admin's vault only as well as that leak allows. Changing it later doesn't fully help: a password change re-wraps AK, but any backup taken before the change still holds AK wrapped under the old password, so the old password unlocks that backup forever.
+
+Instead:
+1. The Worker var `ADMIN_EMAIL` names the owner's email (configured, not secret).
+2. `GET /api/setup/status` returns `{needsSetup: true}` while no user with role `admin` exists.
+3. The SPA shows `/setup` with one button: "Email me the setup link". `POST /api/setup/start` (no body) creates an invite with role `admin` for `ADMIN_EMAIL` and emails it. Rate-limited (3/hour). Once an admin exists both endpoints return `404`.
+4. The owner accepts it like any invite (10.1) and chooses their own master password. Nobody else ever knows it.
+
+In local development, email sending is replaced by logging the link to the console, so bootstrapping takes seconds.
+
+### 10.1 Invites and account creation
+
+**Admin sends an invite**
+1. Admin (logged in, unlocked) enters an email. `POST /api/admin/invites {email}`.
+2. Server rejects if the email already has an account or a live invite (`409`), otherwise creates an `invites` row: random 32-byte token (DB stores only `SHA-256(token)`), role `user`, expiry 72 h (`INVITE_TTL_HOURS`).
+3. Server sends the email via Resend: "<admin email> invited you to Password Manager", link `https://password-manager.azzaz.dev/invite#t=<token>`. The token is in the **URL fragment**, which browsers never send to the server, so it can't end up in logs or `Referer` headers.
+4. Admin can list, resend (issues a new token, invalidates the old one) and revoke invites.
+
+**Invitee accepts**
+1. The SPA reads the token from the fragment, then removes it from the address bar (`history.replaceState`).
+2. `POST /api/invites/inspect {token}` → `{email, invitedBy, expiresAt}` or `410 invite_invalid` (expired, used, revoked: same error for all).
+3. The page shows the email (read-only) and asks for a master password (minimum 12 characters, zxcvbn score ≥ 3, with a clear explanation that nobody, including the admin, can reset it without the recovery kit) and confirmation.
+4. In the crypto worker the client:
    1. generates `userId`, `salt`, derives `passwordKey` → `authKey`, `wrapKey`;
    2. generates `AK`, identity keypair; encrypts private key with AK; wraps AK with wrapKey;
    3. generates the recovery phrase (32 random bytes → 24 BIP39 words), derives `recoveryAuthKey`, `recoveryWrapKey`; wraps AK with recoveryWrapKey;
    4. creates the default vault "Personal": `vaultId`, `VK`, encrypted metadata, VK sealed to the user's own public key.
-4. `POST /api/auth/signup` with the email code and all of the above. The server stores HMACs of `authKey` and `recoveryAuthKey`, creates the user, vault and membership in one `batch()`, and starts a session.
-5. **Recovery kit screen** (cannot be skipped): show the 24 words, offer "Download recovery kit" (a text/PDF file with the words, email and instructions), and ask the user to type 3 randomly chosen words to confirm they saved it.
+5. `POST /api/auth/accept-invite {token, ...all of the above}`. The server re-checks the token, stores HMACs of `authKey` and `recoveryAuthKey`, and in one `batch()` creates the user (role from the invite, `email_verified_at = now` because opening the emailed link proves inbox access), the vault and owner membership, and marks the invite accepted. It starts a session.
+6. **Recovery kit screen** (cannot be skipped): show the 24 words, offer "Download recovery kit" (a text file with the words, email and instructions), and ask the user to type 3 randomly chosen words to confirm they saved it.
+
+### 10.1a What admins can and cannot do
+
+| Can | Cannot |
+|-----|--------|
+| Send, resend, revoke invites | Read any vault, item or vault name |
+| List users (email, role, status, created, last login, 2FA on/off) | Reset someone's password **and keep their data** |
+| Disable / enable a user (disabled: login refused, all sessions revoked) | See passwords, TOTP secrets or recovery phrases |
+| Delete a user (their owned vaults and items are deleted) | Bypass the user's 2FA to sign in as them |
+| Reset a user's account (10.5 D on their behalf: data wiped, user gets a fresh invite to set a new password) | |
+| Promote/demote admins (can't demote the last admin) | |
 
 ### 10.2 Login
 
@@ -417,7 +455,7 @@ If the vault is unlocked on another device, the user goes to Settings → Change
 A trusted user receives AK sealed to their public key, usable only after a waiting period (e.g. 7 days) that the owner can cancel from any device.
 
 **D. Reset account (last resort, data lost)**
-Email code → confirm a clear warning ("All your items will be permanently deleted. Items others shared with you will need to be re-shared.") → new keys and a new empty vault are generated, all owned vaults/items are deleted, memberships in others' vaults are removed, 2FA and passkeys are cleared, sessions are revoked.
+Started by the user (email code) or by an admin on their behalf (the user then receives an invite-style email to set a new password). Confirm a clear warning ("All your items will be permanently deleted. Items others shared with you will need to be re-shared.") → new keys and a new empty vault are generated, all owned vaults/items are deleted, memberships in others' vaults are removed, 2FA and passkeys are cleared, sessions are revoked.
 
 ### 10.6 Login 2FA (for the app itself)
 
@@ -435,7 +473,7 @@ This protects **sign-in**, not encryption. Losing it never risks data.
 
 ## 11. Sharing
 
-Only registered users with verified emails can share or receive shares.
+Only registered users (every account has a verified email, because accounts are created from emailed invites) can share or receive shares.
 
 ### 11.1 Roles
 
@@ -487,7 +525,11 @@ SQLite via Drizzle. Conventions: IDs are UUID v4 `TEXT` (client-generated for us
 |--------|------|-------|
 | id | TEXT PK | client-generated |
 | email | TEXT UNIQUE | lowercased, trimmed |
-| email_verified_at | INTEGER | |
+| email_verified_at | INTEGER | set when the invite is accepted |
+| role | TEXT | `admin` or `user` |
+| status | TEXT | `active` or `disabled` |
+| invited_by | TEXT NULL | user id of the admin (NULL for the bootstrap admin) |
+| last_login_at | INTEGER NULL | |
 | kdf_alg | TEXT | `argon2id13` |
 | kdf_mem | INTEGER | bytes |
 | kdf_ops | INTEGER | |
@@ -514,8 +556,11 @@ id TEXT PK, user_id → users (cascade), credential_id TEXT UNIQUE, public_key T
 ### `backup_codes`
 id TEXT PK, user_id → users (cascade), code_hash TEXT, used_at INTEGER NULL.
 
+### `invites`
+id TEXT PK, email TEXT, role TEXT (`admin` | `user`), token_hash TEXT UNIQUE, invited_by TEXT NULL → users, kind TEXT (`new_account` | `account_reset`), expires_at INTEGER, accepted_at INTEGER NULL, revoked_at INTEGER NULL, created_at INTEGER. At most one live invite per email (enforced in code: revoke the old one when resending).
+
 ### `email_codes`
-id TEXT PK, email TEXT, purpose TEXT (`signup` | `recovery` | `reset_account` | `sensitive_action`), code_hash TEXT, attempts INTEGER, expires_at INTEGER, consumed_at INTEGER NULL.
+id TEXT PK, email TEXT, purpose TEXT (`recovery` | `reset_account` | `sensitive_action`), code_hash TEXT, attempts INTEGER, expires_at INTEGER, consumed_at INTEGER NULL.
 
 ### `auth_challenges`
 id TEXT PK, user_id, kind (`2fa` | `recovery` | `webauthn_register` | `webauthn_auth`), token_hash, payload TEXT (JSON), expires_at.
@@ -567,8 +612,11 @@ All routes under `/api`. JSON in/out. Errors: `{ "error": { "code": "snake_case"
 ### Auth (no session required)
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/auth/email/start` | Send email code (`signup`, `recovery`, `reset_account`) |
-| POST | `/auth/signup` | Create account (body: email code + key material + default vault) |
+| GET | `/setup/status` | `{needsSetup}` while no admin exists |
+| POST | `/setup/start` | Email the admin setup invite to `ADMIN_EMAIL` (only while no admin exists) |
+| POST | `/invites/inspect` | Validate an invite token → email, inviter, expiry |
+| POST | `/auth/accept-invite` | Create account (body: invite token + key material + default vault) |
+| POST | `/auth/email/start` | Send email code (`recovery`, `reset_account`) |
 | POST | `/auth/prelogin` | Get salt + KDF params |
 | POST | `/auth/login` | Verify authKey → session or 2FA challenge |
 | POST | `/auth/2fa/verify` | Complete login with TOTP / passkey / backup code |
@@ -594,6 +642,18 @@ All routes under `/api`. JSON in/out. Errors: `{ "error": { "code": "snake_case"
 | GET | `/me/activity` | Audit events |
 | PATCH | `/me/settings` | Non-sensitive settings |
 | DELETE | `/me` | Delete account (requires authKey + email code) |
+
+### Admin (session required, role `admin`)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/admin/invites` | List invites (pending, accepted, expired, revoked) |
+| POST | `/admin/invites` | Invite an email |
+| POST | `/admin/invites/:id/resend` | New token + email, old token invalidated |
+| POST | `/admin/invites/:id/revoke` | Revoke |
+| GET | `/admin/users` | List users (metadata only) |
+| PATCH | `/admin/users/:id` | Change role / status (`disabled` revokes sessions) |
+| POST | `/admin/users/:id/reset` | Wipe account data and send an `account_reset` invite |
+| DELETE | `/admin/users/:id` | Delete user and their owned data |
 
 ### Vaults, items, shares (session required)
 | Method | Path | Purpose |
@@ -699,7 +759,7 @@ Favicons: off by default (fetching `example.com/favicon.ico` would leak which si
 - **Crypto worker:** a dedicated Web Worker owns libsodium and all keys. The UI talks to it with typed messages via a tiny RPC wrapper (`comlink`-style, hand-written to avoid a dependency). Locking = telling the worker to wipe its key store.
 - **State:** TanStack Query for server data (ciphertext), a decrypted in-memory store (inside the worker; UI receives decrypted item objects on demand) for vault contents.
 - **Sync:** full sync on unlock; incremental `GET /sync?since=` on window focus and every 60 s while unlocked; after writes, update local state optimistically.
-- **Routing:** `/login`, `/signup`, `/recover`, `/unlock`, `/vault/:vaultId?`, `/item/:itemId`, `/generator`, `/shared`, `/settings/*`.
+- **Routing:** `/setup`, `/invite`, `/login`, `/recover`, `/unlock`, `/admin/*`, `/vault/:vaultId?`, `/item/:itemId`, `/generator`, `/shared`, `/settings/*`.
 - **Responsive:** sidebar (vaults) + list + detail on desktop; stacked on mobile.
 - **Accessibility:** keyboard navigation, focus management in dialogs, `aria-live` for the TOTP countdown at a low rate (announce only on code change).
 - **No secrets in URLs, logs, `localStorage` or error reports.** Only non-sensitive UI preferences may be stored locally.
@@ -720,28 +780,30 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [ ] `.gitignore` (`node_modules`, `dist`, `.wrangler`, `.dev.vars`, `*.sqlite`, backups), `.dev.vars.example`
 - [ ] `ci.yml`: install, lint, typecheck, test, build
 - [ ] README quickstart
-- [ ] First deploy to `*.workers.dev` (owner runs `wrangler login` and creates the D1 database)
+- [ ] `deploy.yml`: on push to `master` → CI → apply D1 migrations → `wrangler deploy` (token in GitHub secrets)
+- [ ] First deploy to `https://password-manager.azzaz.dev` (Custom Domain in `wrangler.jsonc`), `/api/health` returns OK
 
 ### Phase 1: Core libraries (no UI, fully tested)
-- [ ] `packages/crypto`: sodium init, Argon2id derive, subkeys, envelope encrypt/decrypt with AAD, sealed boxes, recovery phrase (BIP39) generate/parse, key bundle builders for signup/password change/recovery, fixed test vectors
+- [ ] `packages/crypto`: sodium init, Argon2id derive, subkeys, envelope encrypt/decrypt with AAD, sealed boxes, recovery phrase (BIP39) generate/parse, key bundle builders for account creation/password change/recovery, fixed test vectors
 - [ ] `packages/generator`: unbiased random index, random mode, passphrase mode (EFF list), entropy calculation, property tests (distribution, set guarantees)
 - [ ] `packages/otp`: URI parse/normalise/validate, Base32, code generation, `remaining()`/`progress()`, RFC 6238/4226 vectors
 - [ ] `packages/shared`: zod schemas for item content and all API request/response bodies
 
 ### Phase 2: Accounts
-- [ ] D1 schema: users, sessions, email_codes, auth_challenges, rate_limits, audit_events
-- [ ] Email sending (Resend) with a dev mode that logs codes to the console
-- [ ] Signup flow incl. email code and recovery kit screen (10.1)
+- [ ] D1 schema: users, invites, sessions, email_codes, auth_challenges, rate_limits, audit_events
+- [ ] Email sending via the Resend HTTP API with a dev mode that logs links/codes to the console; plain, text-first templates (invite, admin setup, recovery code, security notices)
+- [ ] Admin bootstrap: `/setup` page, `/setup/status`, `/setup/start` (10.0)
+- [ ] Invite acceptance: `/invite` page, `/invites/inspect`, `/auth/accept-invite`, recovery kit screen (10.1)
+- [ ] Admin console: send/resend/revoke invites, list users, disable/enable, change role (10.1a)
 - [ ] Prelogin with fake salts, login, sessions, logout (10.2)
 - [ ] Crypto worker + lock/unlock + auto-lock (10.3)
 - [ ] Change master password (10.4)
-- [ ] Rate limiting (D1-backed fixed windows: login 10/15 min per email, 30/15 min per IP; email codes 5/hour per email)
-- [ ] Origin check middleware, session middleware with `security_stamp`
-- [ ] Signup gating by `SIGNUP_MODE` (see [Open questions](#20-open-questions-for-the-owner))
+- [ ] Rate limiting (D1-backed fixed windows: login 10/15 min per email, 30/15 min per IP; email codes 5/hour per email; invite inspect 20/15 min per IP; setup start 3/hour)
+- [ ] Origin check middleware (exact match), session middleware with `security_stamp` and `status = active`, admin-role middleware
 
 ### Phase 3: Personal vault
 - [ ] D1 schema: vaults, vault_members, items, deletions
-- [ ] Default vault created at signup; create/rename/delete extra vaults
+- [ ] Default vault created when the invite is accepted; create/rename/delete extra vaults
 - [ ] Item CRUD (login, note) with revision conflicts, trash/restore/purge
 - [ ] `/sync` full + incremental
 - [ ] UI: sidebar, item list with client-side search, item detail, item editor
@@ -764,15 +826,14 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [ ] Backup codes
 - [ ] Recovery kit redemption (10.5 A) and regeneration
 - [ ] Reset from an unlocked device (10.5 B)
-- [ ] Reset account (10.5 D)
+- [ ] Reset account (10.5 D), by the user and by an admin (`/admin/users/:id/reset`)
 - [ ] Sessions list/revoke UI, activity log UI
-- [ ] Delete account
+- [ ] Delete account (self and by admin)
 
 ### Phase 6: Production hardening
 - [ ] `backup.yml`: daily `wrangler d1 export --remote` → `age` encrypt → R2, 30-day lifecycle rule; documented restore drill (`scripts/restore.md`) and one test restore into a scratch D1
-- [ ] `deploy.yml`: on push to `master`, run CI, apply D1 migrations, `wrangler deploy`
 - [ ] CSP and headers verified on both assets and API; `securityheaders.com`-style check
-- [ ] Playwright E2E for signup → add item with TOTP → share → recipient sees it → revoke → change password → recover with kit
+- [ ] Playwright E2E for admin setup → invite → accept → add item with TOTP → share → recipient sees it → revoke → change password → recover with kit
 - [ ] Import (CSV formats) and export (encrypted JSON, CSV)
 - [ ] Quota-exceeded handling and friendly error pages
 - [ ] Dependency audit; pin versions; enable Dependabot/Renovate
@@ -794,12 +855,12 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 
 | Layer | Tool | What |
 |-------|------|------|
-| `packages/crypto` | Vitest | Round-trips, AAD mismatch fails, wrong key fails, fixed vectors (format stability), recovery phrase checksum, full signup → password change → recovery simulation without a server |
+| `packages/crypto` | Vitest | Round-trips, AAD mismatch fails, wrong key fails, fixed vectors (format stability), recovery phrase checksum, full account creation → password change → recovery simulation without a server |
 | `packages/generator` | Vitest | Length/sets honoured, at-least-one-per-set, no ambiguous chars when excluded, chi-square-style distribution sanity check, entropy maths |
 | `packages/otp` | Vitest | RFC 6238 + RFC 4226 vectors, URI parsing edge cases, countdown maths at period boundaries |
 | `apps/api` | Vitest + `@cloudflare/vitest-pool-workers` (real workerd + local D1) | Every route: auth, role enforcement (viewer can't write, removed member gets 403), revision conflicts, rate limits, session invalidation via `security_stamp`, fake-salt prelogin |
 | `apps/web` | Vitest + Testing Library | Generator UI, TOTP widget timing (fake timers), lock/unlock |
-| End to end | Playwright | The Phase 6 journey across two browser contexts (two users) |
+| End to end | Playwright | The Phase 6 journey across two browser contexts (two users), starting from admin bootstrap and an invite |
 
 CI must pass before merge/deploy. Crypto code changes require new or updated tests in the same commit.
 
@@ -807,28 +868,76 @@ CI must pass before merge/deploy. Crypto code changes require new or updated tes
 
 ## 18. Deployment, operations and backups
 
-### One-time owner setup (Cloudflare free account)
-1. Create a Cloudflare account; install deps with `bun install`; run `bunx wrangler login`.
-2. `bunx wrangler d1 create password-manager` → put the `database_id` in `apps/api/wrangler.jsonc`.
-3. `bunx wrangler r2 bucket create pm-backups` and add a lifecycle rule deleting objects older than 30 days.
-4. Set secrets (see [section 19](#19-configuration-reference)) with `bunx wrangler secret put NAME`.
-5. Create a Resend account and API key; verify a sending domain, or use Resend's test sender during development.
-6. For GitHub Actions: repository secrets `CLOUDFLARE_API_TOKEN` (scoped to Workers, D1, R2 edit), `CLOUDFLARE_ACCOUNT_ID`, `BACKUP_AGE_PUBLIC_KEY`. Keep the matching `age` private key **offline** (password manager of the owner + printed copy).
+Production URL: **`https://password-manager.azzaz.dev`**. One Worker named `password-manager` serves everything on that host: `/api/*` runs the Hono app, every other path is a static asset with SPA fallback to `index.html`. The `*.workers.dev` URL is disabled (`workers_dev: false`) so the app has exactly one origin.
+
+`apps/api/wrangler.jsonc` (sketch):
+
+```jsonc
+{
+  "name": "password-manager",
+  "main": "src/index.ts",
+  "compatibility_date": "<date of scaffolding>",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "<owner's account id, not secret>",
+  "workers_dev": false,
+  "routes": [{ "pattern": "password-manager.azzaz.dev", "custom_domain": true }],
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "password-manager", "database_id": "<id, not secret>", "migrations_dir": "migrations" }
+  ],
+  "triggers": { "crons": ["23 2 * * *"] },
+  "vars": { "APP_ORIGIN": "https://password-manager.azzaz.dev", "ENVIRONMENT": "production" /* ...see section 19 */ }
+}
+```
+
+The security headers from [section 8](#8-security-model) must also apply to static assets: either set `run_worker_first: true` for HTML navigations only, or ship an `_headers` file in `apps/web/public` with the same values. Decide in Phase 0 and record it here.
+
+### One-time owner setup
+
+All of this can be done in the Cloudflare and GitHub dashboards; no local Wrangler login is required. **Secrets are entered directly into Cloudflare/GitHub, never pasted into chat, issues or commits.**
+
+1. **Account ID:** Cloudflare dashboard → Workers & Pages → copy the Account ID (not secret; goes into `wrangler.jsonc`).
+2. **Hostname:** make sure the `azzaz.dev` zone has **no existing DNS record** named `password-manager`. The Custom Domain creates its own record and certificate on first deploy.
+3. **D1:** Storage & Databases → D1 → Create database `password-manager`. Copy its ID (not secret; goes into `wrangler.jsonc`).
+4. **Deploy API token** (My Profile → API Tokens → Create Token → Custom token), name `pm-deploy`:
+
+   | Scope | Resource | Permission | Why |
+   |-------|----------|-----------|-----|
+   | Account | Workers Scripts | Edit | Upload the Worker, assets, cron trigger |
+   | Account | D1 | Edit | Apply migrations |
+   | Account | Account Settings | Read | Wrangler reads account details |
+   | Zone | Workers Routes | Edit | Attach the Custom Domain |
+   | Zone | Zone | Read | Look up the `azzaz.dev` zone |
+
+   Account resources: *Include → the owner's account*. Zone resources: *Include → Specific zone → `azzaz.dev`*. No IP filter (GitHub runner IPs vary). Optional expiry, e.g. 1 year with a calendar reminder.
+5. **Backup API token** (Phase 6), name `pm-backup`: Account · D1 · Edit (export) and Account · Workers R2 Storage · Edit. Separate from the deploy token so each has the least access it needs.
+6. **R2** (Phase 6): create bucket `pm-backups` with a lifecycle rule that deletes objects older than 30 days.
+7. **GitHub** → repo Settings → Secrets and variables → Actions:
+   - Secrets: `CLOUDFLARE_API_TOKEN` (pm-deploy), `CLOUDFLARE_BACKUP_API_TOKEN` (pm-backup, Phase 6).
+   - Variables: `CLOUDFLARE_ACCOUNT_ID`, `BACKUP_AGE_PUBLIC_KEY` (Phase 6; keep the matching `age` private key **offline**: in the owner's own password manager plus a printed copy).
+8. **Resend:** add sending domain `password-manager.azzaz.dev` and create the DNS records Resend shows (SPF/MX on `send.password-manager.azzaz.dev`, DKIM TXT on `resend._domainkey.password-manager.azzaz.dev`) in Cloudflare DNS as **DNS only** (grey cloud), or use Resend's Cloudflare auto-configure. These are DNS records, not HTTPS hostnames, so the one-level SSL limit doesn't apply. If Resend's single free domain is already used for `azzaz.dev`, reuse it and send from `password-manager@azzaz.dev` instead. Create an API key with **Sending access** restricted to that domain.
+9. **Worker secrets** (after the first deploy creates the Worker): Workers & Pages → `password-manager` → Settings → Variables and Secrets → add each as type *Secret*: `RESEND_API_KEY`, `AUTH_PEPPER`, `FAKE_SALT_KEY`, `SERVER_ENC_KEY` (see [section 19](#19-configuration-reference)). Secrets survive later deploys. Until they exist, the API fails closed with `503 server_misconfigured`.
+10. Open `https://password-manager.azzaz.dev/setup` and send yourself the admin setup link (10.0).
 
 ### Deploy
-- `bun run deploy` = build web → apply remote D1 migrations → `wrangler deploy`.
-- Automated by `deploy.yml` on push to `master` after CI passes.
-- Migrations must be backward compatible with the currently deployed code (add columns before using them; drop in a later release).
+- `deploy.yml` on push to `master`: install → lint/typecheck/test → build web → `wrangler d1 migrations apply password-manager --remote` → `wrangler deploy`. Uses `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- A manual `bun run deploy` from a machine with `wrangler login` does the same steps (fallback only).
+- Migrations must be backward compatible with the currently deployed code (add columns before using them; drop in a later release), because migrations run just before the new code goes live.
 
 ### Backups and restore
-- Daily (`backup.yml`, cron `17 3 * * *`): `wrangler d1 export password-manager --remote --output=dump.sql` → `age -r $BACKUP_AGE_PUBLIC_KEY` → `wrangler r2 object put pm-backups/YYYY-MM-DD.sql.age`.
+- Daily (`backup.yml`, cron `17 3 * * *`, uses `CLOUDFLARE_BACKUP_API_TOKEN`): `wrangler d1 export password-manager --remote --output=dump.sql` → `age -r $BACKUP_AGE_PUBLIC_KEY` → `wrangler r2 object put pm-backups/YYYY-MM-DD.sql.age`. Delete the plaintext dump in the same step.
 - Fast restore for the last 7 days: D1 Time Travel (`wrangler d1 time-travel restore`).
 - Older: download from R2, decrypt with the offline `age` key, `wrangler d1 execute <db> --remote --file=dump.sql` into a fresh database, switch the binding.
 - Practise a restore once per quarter.
 
 ### Monitoring
 - Workers dashboard analytics (free) for errors and request counts.
-- `wrangler tail` for live logs. Logs must never contain request bodies, keys, verifiers or codes.
+- `wrangler tail` for live logs. Logs must never contain request bodies, keys, verifiers, tokens or codes.
 - Optional: a daily GitHub Action that calls `/api/health` and opens an issue on failure.
 
 ---
@@ -842,39 +951,55 @@ CI must pass before merge/deploy. Crypto code changes require new or updated tes
 | `ASSETS` | Static assets | SPA build |
 
 ### Worker vars (non-secret, in `wrangler.jsonc`)
-| Name | Example | Purpose |
-|------|---------|---------|
-| `APP_ORIGIN` | `https://pm.example.workers.dev` | Origin check, links in emails, WebAuthn RP ID |
-| `ENVIRONMENT` | `production` / `development` | Dev mode logs email codes instead of sending |
-| `SIGNUP_MODE` | `invite` | `open`, `allowlist`, or `invite` |
-| `SIGNUP_ALLOWLIST` | `a@x.com,b@y.com` | Used when `SIGNUP_MODE=allowlist` |
+Vars set in the dashboard are overwritten on deploy, so they live in `wrangler.jsonc` only.
+
+| Name | Value | Purpose |
+|------|-------|---------|
+| `APP_ORIGIN` | `https://password-manager.azzaz.dev` | Exact Origin check, links in emails, WebAuthn RP ID (`password-manager.azzaz.dev`) |
+| `ENVIRONMENT` | `production` (local: `development`) | Development logs email links/codes instead of sending |
+| `ADMIN_EMAIL` | owner's email (see [section 20](#20-open-questions-for-the-owner)) | Recipient of the one-time admin setup invite (10.0) |
+| `INVITE_TTL_HOURS` | `72` | Invite link lifetime |
 | `KDF_DEFAULT_MEM` | `67108864` | 64 MiB |
 | `KDF_DEFAULT_OPS` | `3` | |
-| `EMAIL_FROM` | `Password Manager <no-reply@example.com>` | |
+| `EMAIL_FROM` | `Password Manager <no-reply@password-manager.azzaz.dev>` | Must be on the Resend-verified domain |
 
-### Worker secrets (`wrangler secret put`, locally in `apps/api/.dev.vars`)
+### Worker secrets (dashboard or `wrangler secret put`; locally in `apps/api/.dev.vars`)
 | Name | Purpose | How to generate |
 |------|---------|-----------------|
 | `AUTH_PEPPER` | HMAC key for `auth_verifier` and `recovery_verifier` | 32 random bytes, base64url |
 | `FAKE_SALT_KEY` | Deterministic fake salts for unknown emails | 32 random bytes |
 | `SERVER_ENC_KEY` | AES-256-GCM key for login TOTP secrets | 32 random bytes |
-| `RESEND_API_KEY` | Email sending | Resend dashboard |
+| `RESEND_API_KEY` | Email sending (Resend HTTP API, sending access only) | Resend dashboard |
 
-**Never rotate `AUTH_PEPPER` casually:** every user's verifier depends on it. Rotation would need a dual-pepper migration (verify with old, rewrite with new on next login).
+**Never rotate `AUTH_PEPPER` casually:** every user's verifier depends on it. Rotation would need a dual-pepper migration (verify with old, rewrite with new on next login). Store a copy of each generated secret in the owner's own offline records; losing `AUTH_PEPPER` means nobody can log in (data isn't lost: users could recover through 10.5 A once a new pepper is set and verifiers are rebuilt).
 
 Generate a secret: `openssl rand -base64 32 | tr '+/' '-_' | tr -d '='`.
+
+Local development (`apps/api/.dev.vars`, never committed) uses throwaway values and needs no Resend key: in `development` emails are printed to the console.
+
+### GitHub Actions configuration
+| Kind | Name | Used by |
+|------|------|---------|
+| Secret | `CLOUDFLARE_API_TOKEN` | `deploy.yml` |
+| Secret | `CLOUDFLARE_BACKUP_API_TOKEN` | `backup.yml` |
+| Variable | `CLOUDFLARE_ACCOUNT_ID` | both |
+| Variable | `BACKUP_AGE_PUBLIC_KEY` | `backup.yml` |
 
 ---
 
 ## 20. Open questions for the owner
 
-1. **Who can sign up?** Recommendation: `invite` or `allowlist` mode. Open signup on a free plan invites abuse and exhausts email/D1 quotas. In `invite` mode an existing user generates single-use invite links.
-2. **App name and domain.** Is `*.workers.dev` acceptable, or will you buy a domain? (A domain is the only thing that would cost money; it also makes email deliverability much better.)
-3. **Email provider.** Resend free tier is the default. Confirm, or pick an alternative.
-4. **Expected number of users.** Sizing assumes up to ~100 users / ~50k items, far inside the free limits.
-5. **Repository visibility.** Public repos get unlimited GitHub Actions minutes; private repos get 2,000/month (enough). Public code is fine security-wise for an E2E design, but it's your call.
+Answered (October 2026):
+- **Registration:** invite-only; super admin bootstrapped via setup link (10.0).
+- **Domain:** `password-manager.azzaz.dev`, single origin with `/api` prefix.
+- **Email:** Resend, HTTP API key (not SMTP).
+- **Repository:** private; deploy from GitHub Actions with Wrangler.
 
-Until answered, build with `SIGNUP_MODE=allowlist` and a `workers.dev` domain.
+Still open:
+1. **`ADMIN_EMAIL`:** which address receives the admin setup link? (It is committed in `wrangler.jsonc`; use a var override if that's unwanted.)
+2. **Resend domain:** verify `password-manager.azzaz.dev`, or is the free domain slot already used for `azzaz.dev`?
+3. **Account ID and D1 database ID** for `wrangler.jsonc` (neither is secret).
+4. **Expected number of users.** Sizing assumes up to ~100 users / ~50k items, far inside the free limits.
 
 ---
 
@@ -909,7 +1034,7 @@ Code style: TypeScript strict, Biome defaults, small modules, named exports, zod
 | **passwordKey** | Argon2id output from master password + salt |
 | **authKey** | Subkey of passwordKey sent to the server to prove the password at login |
 | **wrapKey** | Subkey of passwordKey used to encrypt the account key |
-| **AK (account key)** | Random key created at signup that protects the user's private key; wrapped by wrapKey and by the recovery key |
+| **AK (account key)** | Random key created at account creation that protects the user's private key; wrapped by wrapKey and by the recovery key |
 | **Identity keypair** | Per-user X25519 keypair; the public key lets others share keys with this user |
 | **VK (vault key)** | Random key per vault (versioned); encrypts vault metadata and item keys |
 | **IK (item key)** | Random key per item (versioned); encrypts the item's content |
