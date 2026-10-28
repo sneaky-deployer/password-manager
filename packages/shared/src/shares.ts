@@ -28,7 +28,7 @@ export const itemShareWireSchema = z.strictObject({
   status: z.enum(SHARE_STATUSES),
   /** Item key version that `sealedKey` carries. */
   keyVersion: versionSchema,
-  invitedBy: uuidSchema,
+  invitedBy: uuidSchema.nullable(),
   sealedKey: sealedBoxSchema.optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,

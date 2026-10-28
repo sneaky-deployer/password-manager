@@ -11,7 +11,7 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  */
 export const originCheck = createMiddleware<AppEnv>(async (c, next) => {
   if (!SAFE_METHODS.has(c.req.method) && c.req.header("Origin") !== c.var.config.appOrigin) {
-    throw new AppError("forbidden", 403, "Cross-origin request blocked.");
+    throw new AppError("origin_mismatch", 403);
   }
   await next();
 });

@@ -8,7 +8,7 @@ describe("originCheck", () => {
   it("rejects a POST without an Origin header", async () => {
     const res = await request("POST", "/api/nope", { origin: null, json: {} });
     expect(res.status).toBe(403);
-    expect(await readJson(res)).toMatchObject({ error: { code: "forbidden" } });
+    expect(await readJson(res)).toMatchObject({ error: { code: "origin_mismatch" } });
   });
 
   it.each([

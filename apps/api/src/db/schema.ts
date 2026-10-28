@@ -8,6 +8,7 @@ import {
   type AnySQLiteColumn,
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -308,7 +309,42 @@ export const deletions = sqliteTable(
     userId: text("user_id"),
     deletedAt: integer("deleted_at").notNull(),
   },
-  (t) => [index("deletions_deleted_at_idx").on(t.deletedAt)],
+  (t) => [
+    index("deletions_deleted_at_idx").on(t.deletedAt),
+    // Sync reads: tombstones addressed to one user, and tombstones for every member of a vault.
+    index("deletions_user_deleted_idx").on(t.userId, t.deletedAt),
+    index("deletions_vault_deleted_idx").on(t.vaultId, t.deletedAt),
+  ],
+);
+
+/**
+ * Staging area for vault key rotation (PLAN.md 11.4, routes/vaults.ts `POST /vaults/:id/rotate`).
+ * Chunks of re-encrypted items land here without touching live data; the finalize step swaps them
+ * into `items` in one batch and deletes the staged rows. One row per item (upserted, so retrying a
+ * chunk is idempotent). `revision` is the item revision the client read; finalize refuses to apply
+ * a row whose item moved on. Rows cascade away with their vault or item.
+ */
+export const vaultRotationItems = sqliteTable(
+  "vault_rotation_items",
+  {
+    vaultId: text("vault_id")
+      .notNull()
+      .references(() => vaults.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    newKeyVersion: integer("new_key_version").notNull(),
+    revision: integer("revision").notNull(),
+    wrappedKey: text("wrapped_key").notNull(), // new IK under the new VK
+    encryptedData: text("encrypted_data").notNull(), // content under the new IK
+    itemKeyVersion: integer("item_key_version").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.vaultId, t.itemId] }),
+    // Cascade from `items` (single-item deletes) must not scan the table.
+    index("vault_rotation_items_item_id_idx").on(t.itemId),
+  ],
 );
 
 export type User = typeof users.$inferSelect;
@@ -336,5 +372,7 @@ export type NewItemShare = typeof itemShares.$inferInsert;
 export type RateLimit = typeof rateLimits.$inferSelect;
 export type AuditEvent = typeof auditEvents.$inferSelect;
 export type NewAuditEvent = typeof auditEvents.$inferInsert;
+export type VaultRotationItem = typeof vaultRotationItems.$inferSelect;
+export type NewVaultRotationItem = typeof vaultRotationItems.$inferInsert;
 export type Deletion = typeof deletions.$inferSelect;
 export type NewDeletion = typeof deletions.$inferInsert;

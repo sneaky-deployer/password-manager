@@ -4,6 +4,8 @@ import {
   keyBundleSchema,
   meSummarySchema,
   passwordChangeSchema,
+  type TwoFactorCode,
+  twoFactorCodeSchema,
   webauthnAssertionSchema,
   webauthnRequestOptionsSchema,
 } from "./me.ts";
@@ -185,14 +187,12 @@ export type WebauthnOptionsResponse = z.infer<typeof webauthnOptionsResponseSche
 // --- Recovery (PLAN.md 10.5 A) ------------------------------------------------------------------
 
 /**
- * Second factor accepted on the recovery path. Passkeys are not offered here (there is no login
- * challenge to bind an assertion to); users with passkeys use a backup code.
+ * Second factor accepted on the recovery path (defined in `me.ts` as `twoFactorCodeSchema`).
+ * Passkeys are not offered here (there is no login challenge to bind an assertion to); users with
+ * passkeys use a backup code.
  */
-export const recoveryTwoFactorSchema = z.discriminatedUnion("method", [
-  z.strictObject({ method: z.literal("totp"), code: totpCodeSchema }),
-  z.strictObject({ method: z.literal("backup_code"), code: backupCodeSchema }),
-]);
-export type RecoveryTwoFactor = z.infer<typeof recoveryTwoFactorSchema>;
+export const recoveryTwoFactorSchema = twoFactorCodeSchema;
+export type RecoveryTwoFactor = TwoFactorCode;
 
 /**
  * `POST /auth/recovery/start`. If 2FA is on and `twoFactor` is missing the server answers

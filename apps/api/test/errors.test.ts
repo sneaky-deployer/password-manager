@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { ERROR_CODES as SHARED_ERROR_CODES } from "@pm/shared";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -52,30 +53,7 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("error handler", () => {
   it("covers every documented error code", () => {
-    expect([...ERROR_CODES].sort()).toEqual(
-      [
-        "validation_error",
-        "unauthorized",
-        "forbidden",
-        "not_found",
-        "conflict",
-        "revision_conflict",
-        "rate_limited",
-        "invalid_credentials",
-        "two_factor_required",
-        "invalid_two_factor",
-        "invite_invalid",
-        "email_taken",
-        "email_code_invalid",
-        "account_disabled",
-        "quota_exceeded",
-        "server_misconfigured",
-        "setup_not_available",
-        "last_admin",
-        "item_too_large",
-        "internal_error",
-      ].sort(),
-    );
+    expect([...ERROR_CODES].sort()).toEqual(Object.values(SHARED_ERROR_CODES).sort());
   });
 
   it("formats AppError with default message and details", async () => {

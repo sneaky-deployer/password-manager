@@ -2,7 +2,7 @@
 
 This document is the single source of truth for the project. It is written so that someone (a person or a new AI session) with **no prior context** can read it top to bottom and start working. If you change a decision, update this file in the same commit.
 
-**Status:** Phases 0–1 done (first deploy waits on owner setup, section 18). Next step: **Phase 2** (see [Build phases](#16-build-phases)).
+**Status:** Phases 0–1 done; the **API for Phases 2–5 is implemented and tested** (all routes in section 13). Web UI in progress. First deploy waits on owner setup (section 18) (see [Build phases](#16-build-phases)).
 
 ---
 
@@ -659,6 +659,28 @@ All routes under `/api`. JSON in/out. Errors: `{ "error": { "code": "snake_case"
 | POST | `/admin/users/:id/reset` | Wipe account data and send an `account_reset` invite |
 | DELETE | `/admin/users/:id` | Delete user and their owned data |
 
+### Server behaviour decisions (made while implementing the routes)
+
+**Accounts**
+- Pending TOTP setup lives AES-GCM-encrypted in an `auth_challenges` row (kind `2fa`, purpose `totp_setup`, 15 min); `users.totp_secret_enc` is set only after the first code is confirmed, so non-null means "enabled". Disabling TOTP requires a current TOTP code or a backup code.
+- Login, 2FA, password checks and TOTP enable count only **failures** against rate limits. `auth/email/start` always writes a code row (equal timing) and only mails active users.
+- `recovery/start` checks the email code without consuming it (the request is retried after `two_factor_required`); it is consumed when the recovery token is issued. Passkey-only users recover with a backup code, or use reset-account.
+- Admin reset deletes the user and their data immediately, writes tombstones and sends an `account_reset` invite carrying the same role. Admins can't reset/delete themselves via admin routes; demoting/disabling the last active admin is `409 last_admin` (checked inside the UPDATE, race-free).
+- Creates (`accept-invite`, `reset-account`, vaults, items, shares) return `201`.
+
+**Vaults and sharing**
+- Non-members and pending members get `404` on everything in a vault; members with too low a role get `403`.
+- Managers invite/manage viewers and editors only; only the owner adds/removes managers; the owner can't be removed and must delete the vault instead of leaving. No ownership transfer yet.
+- Item shares are created/revoked by vault managers+ (a recipient may remove their own share). Item-share editors resend `wrappedKey`/`vaultKeyVersion`/`itemKeyVersion` unchanged and can't trash/delete/move.
+- Removing any member (even a pending one) sets `rotation_pending`. While pending, item create/update/move, metadata edits, invites and new shares are `409 rotation_pending`; trash/restore/delete, removals, role changes, leave, accept/decline still work.
+- Rotation chunks are staged in `vault_rotation_items` (idempotent upserts). `finalize` checks that every item (incl. trashed), member and item share is covered at `key_version + 1` with unchanged revisions, then swaps everything in one guarded `batch()`; a concurrent edit or new member aborts it. D1 allows 100 bound parameters per statement, so sealed-key updates go 25 per statement.
+- Pending invitations whose inviter's account is gone are not listed (nobody vouches for them).
+
+**Sync and tombstones**
+- `deletions(entity, entity_id, vault_id, user_id, deleted_at)`. A client receives tombstones where `user_id = me`, or `user_id IS NULL` and `vault_id` is one of its current vaults. Removed members get a `vault` tombstone; remaining members get a `vault_member` tombstone; share recipients get `item_share` tombstones; moved items leave an `item` tombstone in the old vault.
+- `serverTime` is the request start time; incremental sync re-reads a 2-second overlap (`updated_at > since − 2000`), so clients must apply rows idempotently and apply deletions before upserts. A vault is re-sent in full when my membership changes. `since` older than 90 days → full sync.
+- Drizzle's D1 batch mode collapses selected columns with the same SQL name (e.g. two `id`s): alias duplicates in batched selects (see `apps/api/src/lib/vaults/db.ts`).
+
 ### Vaults, items, shares (session required)
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -802,14 +824,14 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [ ] Prelogin with fake salts, login, sessions, logout (10.2)
 - [ ] Crypto worker + lock/unlock + auto-lock (10.3)
 - [ ] Change master password (10.4)
-- [ ] Rate limiting (D1-backed fixed windows: login 10/15 min per email, 30/15 min per IP; email codes 5/hour per email; invite inspect 20/15 min per IP; setup start 3/hour)
+- [x] Rate limiting (D1-backed fixed windows: login 10/15 min per email, 30/15 min per IP; email codes 5/hour per email; invite inspect 20/15 min per IP; setup start 3/hour)
 - [x] Origin check middleware (exact match), session middleware with `security_stamp` and `status = active`, admin-role middleware
 
 ### Phase 3: Personal vault
 - [x] D1 schema: vaults, vault_members, items, deletions
 - [ ] Default vault created when the invite is accepted; create/rename/delete extra vaults
 - [ ] Item CRUD (login, note) with revision conflicts, trash/restore/purge
-- [ ] `/sync` full + incremental
+- [x] `/sync` full + incremental
 - [ ] UI: sidebar, item list with client-side search, item detail, item editor
 - [ ] Inline + standalone password generator UI
 - [ ] TOTP: add via URI/secret/QR (camera, upload, paste), live code + countdown ring, next-code preview, clock skew correction, codes in the list view
@@ -817,8 +839,8 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [x] Daily cron: purge trash > 30 days, expired sessions/codes/challenges, old audit events and tombstones
 
 ### Phase 4: Sharing
-- [ ] `/users/lookup`, invitations, accept/decline
-- [ ] Vault sharing with roles, server-side role enforcement
+- [x] `/users/lookup`, invitations, accept/decline
+- [x] Vault sharing with roles, server-side role enforcement
 - [ ] Single-item sharing
 - [ ] Revocation with key rotation (vault and item), `rotation_pending` recovery
 - [ ] Move item between vaults

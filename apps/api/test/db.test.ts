@@ -21,6 +21,7 @@ const TABLES = [
   "auth_challenges",
   "vaults",
   "vault_members",
+  "vault_rotation_items",
   "items",
   "item_shares",
   "rate_limits",

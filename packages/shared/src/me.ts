@@ -183,7 +183,15 @@ export const totpEnableResponseSchema = z.strictObject({
 export type TotpEnableResponse = z.infer<typeof totpEnableResponseSchema>;
 
 /** `POST /me/2fa/totp/disable` */
-export const totpDisableRequestSchema = emptyRequestSchema;
+/** A current TOTP code or an unused backup code (TOTP disable, recovery). */
+export const twoFactorCodeSchema = z.discriminatedUnion("method", [
+  z.strictObject({ method: z.literal("totp"), code: totpCodeSchema }),
+  z.strictObject({ method: z.literal("backup_code"), code: backupCodeSchema }),
+]);
+export type TwoFactorCode = z.infer<typeof twoFactorCodeSchema>;
+
+/** `POST /me/2fa/totp/disable`: proving possession of a second factor is required. */
+export const totpDisableRequestSchema = twoFactorCodeSchema;
 export type TotpDisableRequest = z.infer<typeof totpDisableRequestSchema>;
 export const totpDisableResponseSchema = okResponseSchema;
 export type TotpDisableResponse = z.infer<typeof totpDisableResponseSchema>;

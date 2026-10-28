@@ -1,37 +1,21 @@
+import { type ErrorCode, ERROR_CODES as SHARED_ERROR_CODES } from "@pm/shared";
 import type { Context, ErrorHandler, NotFoundHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError, z } from "zod";
 import type { AppEnv } from "../env.ts";
 
-/** Every error code the API can return (snake_case, stable: the web app switches on these). */
-export const ERROR_CODES = [
-  "validation_error",
-  "unauthorized",
-  "forbidden",
-  "not_found",
-  "conflict",
-  "revision_conflict",
-  "rate_limited",
-  "invalid_credentials",
-  "two_factor_required",
-  "invalid_two_factor",
-  "invite_invalid",
-  "email_taken",
-  "email_code_invalid",
-  "account_disabled",
-  "quota_exceeded",
-  "server_misconfigured",
-  "setup_not_available",
-  "last_admin",
-  "item_too_large",
-  "internal_error",
-] as const;
+/** Every error code the API can return. The list lives in @pm/shared so the web app switches on the same codes. */
+export const ERROR_CODES = Object.values(SHARED_ERROR_CODES) as ErrorCode[];
 
-export type ErrorCode = (typeof ERROR_CODES)[number];
+export type { ErrorCode };
 
 const DEFAULT_MESSAGES: Record<ErrorCode, string> = {
   validation_error: "The request is invalid.",
+  origin_mismatch: "Cross-origin request blocked.",
+  challenge_invalid: "This request is invalid or has expired.",
+  rotation_pending: "This vault is waiting for a key rotation. Finish the rotation and try again.",
+  key_version_mismatch: "The key version is out of date. Sync and try again.",
   unauthorized: "You are not signed in.",
   forbidden: "You are not allowed to do that.",
   not_found: "Not found",
