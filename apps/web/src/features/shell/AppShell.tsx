@@ -100,6 +100,13 @@ export function AppShell() {
           <LogoMark className="size-6" />
           <span className="hidden sm:inline">Password Manager</span>
         </Link>
+        <Link
+          to="/generator"
+          className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-brand-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          activeProps={{ "aria-current": "page", className: "bg-slate-100 dark:bg-slate-800" }}
+        >
+          Generator
+        </Link>
         <div className="flex-1" />
         <Button variant="ghost" size="sm" onClick={() => void lockNow()}>
           <svg

@@ -833,8 +833,8 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [ ] Item CRUD (login, note) with revision conflicts, trash/restore/purge
 - [x] `/sync` full + incremental
 - [ ] UI: sidebar, item list with client-side search, item detail, item editor
-- [ ] Inline + standalone password generator UI
-- [ ] TOTP: add via URI/secret/QR (camera, upload, paste), live code + countdown ring, next-code preview, clock skew correction, codes in the list view
+- [x] Inline + standalone password generator UI
+- [x] TOTP: add via URI/secret/QR (camera, upload, paste), live code + countdown ring, next-code preview, clock skew correction, codes in the list view
 - [ ] Copy with clipboard auto-clear, reveal toggles
 - [x] Daily cron: purge trash > 30 days, expired sessions/codes/challenges, old audit events and tombstones
 

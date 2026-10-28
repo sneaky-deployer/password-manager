@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { adminRoutes } from "./admin.tsx";
 import { appRoute, homeRoute } from "./app.tsx";
+import { generatorRoute } from "./generator.tsx";
 import { inviteRoute, loginRoute, recoverRoute, setupRoute, unlockRoute } from "./public.tsx";
 import { rootRoute } from "./root.tsx";
 import { settingsRoutes } from "./settings.tsx";
@@ -13,7 +14,13 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   recoverRoute,
   unlockRoute,
-  appRoute.addChildren([homeRoute, ...vaultRoutes, ...settingsRoutes, ...adminRoutes]),
+  appRoute.addChildren([
+    homeRoute,
+    generatorRoute,
+    ...vaultRoutes,
+    ...settingsRoutes,
+    ...adminRoutes,
+  ]),
 ]);
 
 export function createAppRouter(options: {
