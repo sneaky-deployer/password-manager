@@ -786,7 +786,7 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 ### Phase 1: Core libraries (no UI, fully tested)
 - [ ] `packages/crypto`: sodium init, Argon2id derive, subkeys, envelope encrypt/decrypt with AAD, sealed boxes, recovery phrase (BIP39) generate/parse, key bundle builders for account creation/password change/recovery, fixed test vectors
 - [x] `packages/generator`: unbiased random index, random mode, passphrase mode (EFF list), entropy calculation, property tests (distribution, set guarantees)
-- [ ] `packages/otp`: URI parse/normalise/validate, Base32, code generation, `remaining()`/`progress()`, RFC 6238/4226 vectors
+- [x] `packages/otp`: URI parse/normalise/validate, Base32, code generation, `remaining()`/`progress()`, RFC 6238/4226 vectors
 - [ ] `packages/shared`: zod schemas for item content and all API request/response bodies
 
 ### Phase 2: Accounts
