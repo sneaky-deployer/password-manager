@@ -2,7 +2,7 @@
 
 This document is the single source of truth for the project. It is written so that someone (a person or a new AI session) with **no prior context** can read it top to bottom and start working. If you change a decision, update this file in the same commit.
 
-**Status:** Phases 0–1 done; the **API for Phases 2–5 is implemented and tested** (all routes in section 13). Web UI in progress. First deploy waits on owner setup (section 18) (see [Build phases](#16-build-phases)).
+**Status:** Phases 0–1 done; the **API for Phases 2–5 is implemented and tested** (all routes in section 13). Web account side (Phases 2 and 5) done; vault UI (Phases 3–4) in progress. First deploy waits on owner setup (section 18) (see [Build phases](#16-build-phases)).
 
 ---
 
@@ -818,12 +818,12 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 ### Phase 2: Accounts
 - [x] D1 schema: users, invites, sessions, email_codes, auth_challenges, rate_limits, audit_events
 - [x] Email sending via the Resend HTTP API with a dev mode that logs links/codes to the console; plain, text-first templates (invite, admin setup, recovery code, security notices)
-- [ ] Admin bootstrap: `/setup` page, `/setup/status`, `/setup/start` (10.0)
-- [ ] Invite acceptance: `/invite` page, `/invites/inspect`, `/auth/accept-invite`, recovery kit screen (10.1)
-- [ ] Admin console: send/resend/revoke invites, list users, disable/enable, change role (10.1a)
-- [ ] Prelogin with fake salts, login, sessions, logout (10.2)
-- [ ] Crypto worker + lock/unlock + auto-lock (10.3)
-- [ ] Change master password (10.4)
+- [x] Admin bootstrap: `/setup` page, `/setup/status`, `/setup/start` (10.0)
+- [x] Invite acceptance: `/invite` page, `/invites/inspect`, `/auth/accept-invite`, recovery kit screen (10.1)
+- [x] Admin console: send/resend/revoke invites, list users, disable/enable, change role (10.1a)
+- [x] Prelogin with fake salts, login, sessions, logout (10.2)
+- [x] Crypto worker + lock/unlock + auto-lock (10.3)
+- [x] Change master password (10.4)
 - [x] Rate limiting (D1-backed fixed windows: login 10/15 min per email, 30/15 min per IP; email codes 5/hour per email; invite inspect 20/15 min per IP; setup start 3/hour)
 - [x] Origin check middleware (exact match), session middleware with `security_stamp` and `status = active`, admin-role middleware
 
@@ -847,14 +847,14 @@ Each phase ends with passing CI and a deployable app. Tick boxes as work lands (
 - [ ] "Shared with me" view, member management UI, leave vault
 
 ### Phase 5: Account security and recovery
-- [ ] Login TOTP (setup, enable, disable, replay protection)
-- [ ] Passkeys as second factor (confirm `@simplewebauthn/server` works on Workers; otherwise implement verification with WebCrypto)
-- [ ] Backup codes
-- [ ] Recovery kit redemption (10.5 A) and regeneration
-- [ ] Reset from an unlocked device (10.5 B)
-- [ ] Reset account (10.5 D), by the user and by an admin (`/admin/users/:id/reset`)
-- [ ] Sessions list/revoke UI, activity log UI
-- [ ] Delete account (self and by admin)
+- [x] Login TOTP (setup, enable, disable, replay protection)
+- [x] Passkeys as second factor (`@simplewebauthn/server` verified in workerd with a software authenticator; browser ceremony not yet exercised by an automated test)
+- [x] Backup codes
+- [x] Recovery kit redemption (10.5 A) and regeneration
+- [x] Reset from an unlocked device (10.5 B)
+- [x] Reset account (10.5 D), by the user and by an admin (`/admin/users/:id/reset`)
+- [x] Sessions list/revoke UI, activity log UI
+- [x] Delete account (self and by admin)
 
 ### Phase 6: Production hardening
 - [ ] `backup.yml`: daily `wrangler d1 export --remote` → `age` encrypt → R2, 30-day lifecycle rule; documented restore drill (`scripts/restore.md`) and one test restore into a scratch D1

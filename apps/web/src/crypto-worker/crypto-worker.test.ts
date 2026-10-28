@@ -1,5 +1,5 @@
+import { sodiumReady } from "@pm/crypto";
 import { describe, expect, it } from "vitest";
-import { sodiumReady } from "./index.ts";
 
 describe("@pm/crypto in the web workspace", () => {
   it("loads libsodium sumo", async () => {
