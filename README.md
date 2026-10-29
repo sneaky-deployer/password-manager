@@ -16,8 +16,15 @@ design, data model, API and the phased build plan. Section 16 shows which phase 
 ```sh
 bun install
 cp apps/api/.dev.vars.example apps/api/.dev.vars   # throwaway local secrets, gitignored
+bun run db:migrate:local                             # create the local D1 tables (once, and after new migrations)
 bun run dev
 ```
+
+Open http://localhost:5173. No emails are sent locally: each email (admin setup link, invite links,
+email codes) is printed to the `bun run dev` terminal as one line starting with `[dev email]`. To
+create the first admin, open `/setup`, click the button, then open the printed link. Invite more
+users from Admin → Invites and open their printed links in a private window or another browser
+(each user needs their own session).
 
 `bun run dev` starts both servers:
 
